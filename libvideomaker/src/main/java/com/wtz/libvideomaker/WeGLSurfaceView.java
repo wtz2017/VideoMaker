@@ -7,6 +7,8 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+import com.wtz.libvideomaker.utils.LogUtils;
+
 import java.lang.ref.WeakReference;
 
 import javax.microedition.khronos.egl.EGL10;
@@ -64,7 +66,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
 
     public void requestRender() {
         if (mGLThread == null) {
-            Log.e(TAG, exceptionPrefix()
+            LogUtils.e(TAG, exceptionPrefix()
                     + "GLThread is null! You can't call requestRender before onEGLContextCreated.");
             return;
         }
@@ -82,13 +84,13 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
 
     @Override
     protected void onAttachedToWindow() {
-        Log.w(TAG, "onAttachedToWindow");
+        LogUtils.w(TAG, "onAttachedToWindow");
         super.onAttachedToWindow();
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        Log.w(TAG, "surfaceCreated");
+        LogUtils.w(TAG, "surfaceCreated");
         if (mSurface == null) {
             // 若没有导入外部 Surface，则使用自己的 Surface
             mSurface = holder.getSurface();
@@ -105,13 +107,13 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.w(TAG, "surfaceChanged " + width + "x" + height);
+        LogUtils.w(TAG, "surfaceChanged " + width + "x" + height);
         mGLThread.onWindowResize(width, height);
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.w(TAG, "surfaceDestroyed");
+        LogUtils.w(TAG, "surfaceDestroyed");
         mGLThread.requestExit(new WeGLThread.OnExitedListener() {
             @Override
             public void onExited() {
@@ -125,7 +127,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
 
     @Override
     protected void onDetachedFromWindow() {
-        Log.w(TAG, "onDetachedFromWindow");
+        LogUtils.w(TAG, "onDetachedFromWindow");
         super.onDetachedFromWindow();
     }
 
@@ -188,13 +190,13 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
         @Override
         public void run() {
             setName(TAG + " " + android.os.Process.myTid());
-            Log.w(TAG, "Render thread starting tid=" + android.os.Process.myTid());
+            LogUtils.w(TAG, "Render thread starting tid=" + android.os.Process.myTid());
             try {
                 guardedRun();
             } finally {
                 release();
             }
-            Log.w(TAG, "Render thread end tid=" + android.os.Process.myTid());
+            LogUtils.w(TAG, "Render thread end tid=" + android.os.Process.myTid());
         }
 
         private void guardedRun() {
@@ -232,7 +234,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                     view.mRenderer.onSurfaceChanged(mWidth, mHeight);
                 }
             } else {
-                Log.e(TAG, "onSurfaceChanged WeGLSurfaceView got from mWeakReference is null!");
+                LogUtils.e(TAG, "onSurfaceChanged WeGLSurfaceView got from mWeakReference is null!");
                 // TODO
             }
         }
@@ -249,7 +251,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                     }
                 }
             } else {
-                Log.e(TAG, "onDraw WeGLSurfaceView got from mWeakReference is null!");
+                LogUtils.e(TAG, "onDraw WeGLSurfaceView got from mWeakReference is null!");
                 // TODO
             }
         }
@@ -260,7 +262,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                 case EGL10.EGL_SUCCESS:
                     break;
                 case EGL11.EGL_CONTEXT_LOST:
-                    Log.e(TAG, "Tid=" + android.os.Process.myTid() + " EGL context lost!");
+                    LogUtils.e(TAG, "Tid=" + android.os.Process.myTid() + " EGL context lost!");
                     //TODO lostEglContext = true;
                     break;
                 default:
@@ -268,7 +270,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                     // probably because the SurfaceView surface has been destroyed,
                     // but we haven't been notified yet.
                     // Log the error to help developers understand why rendering stopped.
-                    Log.e(TAG, "Tid=" + android.os.Process.myTid() + " eglSwapBuffers error:" + ret);
+                    LogUtils.e(TAG, "Tid=" + android.os.Process.myTid() + " eglSwapBuffers error:" + ret);
                     //TODO mSurfaceIsBad = true;
                     break;
             }
@@ -280,7 +282,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
             if (view != null) {
                 renderMode = view.mRenderMode;
             } else {
-                Log.e(TAG, "applyRenderMode WeGLSurfaceView got from mWeakReference is null!");
+                LogUtils.e(TAG, "applyRenderMode WeGLSurfaceView got from mWeakReference is null!");
                 // TODO
             }
             if (renderMode == RENDERMODE_WHEN_DIRTY) {
@@ -298,7 +300,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                     mRenderInterval = RENDER_TIME_INTERVAL - (int) (System.currentTimeMillis() - mNextFrameStartTime);
                 }
                 if (mRenderInterval <= 0) {
-                    // Log.e(TAG, "Render too slow!!! " + mRenderInterval + "ms");
+                    // LogUtils.e(TAG, "Render too slow!!! " + mRenderInterval + "ms");
                 } else {
                     try {
                         Thread.sleep(mRenderInterval);
