@@ -54,8 +54,8 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
     // 用来传入顶点坐标的句柄
     private int mVertexCoordHandle;
 
-    // 用来传入顶点投影矩阵数值的句柄
-    private int mProjectionUniformHandle;
+    // 用来传入顶点位置矩阵数值的句柄
+    private int mPosMatrixUnifHandle;
     // 用来保存位置变换矩阵数值的数组
     private float[] mPositionMatrix;
     /* ---------- 顶点坐标配置：end ---------- */
@@ -120,7 +120,7 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
         // 获取顶点着色器和片元着色器中的变量句柄
         mVertexCoordHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Position");
         mTextureCoordHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_TexCoordinate");
-        mProjectionUniformHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_ProjectionMatrix");
+        mPosMatrixUnifHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_PositionMatrix");
         mTextureUniformHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_Texture");
     }
 
@@ -159,10 +159,15 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
         // FBO 纹理坐标，上下左右四角要与顶点坐标一一对应起来
         mTextureCoordData = new float[]{
-                0f, 0f,
-                1f, 0f,
+//                0f, 0f,
+//                1f, 0f,
+//                0f, 1f,
+//                1f, 1f
+                // 这里使用窗口坐标，并使用矩阵旋转来代替 FBO 坐标翻转
                 0f, 1f,
-                1f, 1f
+                1f, 1f,
+                0f, 0f,
+                1f, 0f
         };
         mTextureCoordBuffer = ByteBuffer
                 .allocateDirect(mTextureCoordData.length * BYTES_PER_FLOAT)
@@ -222,18 +227,21 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
     @Override
     public void onSurfaceChanged(int width, int height) {
         GLES20.glViewport(0, 0, width, height);
-        changeProjectionMatrix(width, height);
+        changePositionMatrix(width, height);
         bindTextureToFBO(width, height);
     }
 
     /**
-     * 改变正交投影矩阵
+     * 改变位置矩阵
      */
-    private void changeProjectionMatrix(int width, int height) {
-        LogUtils.d(TAG, "changeProjectionMatrix " + width + "x" + height);
+    private void changePositionMatrix(int width, int height) {
+        LogUtils.d(TAG, "changePositionMatrix " + width + "x" + height);
+        // 初始化单位矩阵
+        Matrix.setIdentityM(mPositionMatrix, 0);
+
+        // 设置正交投影
         float imageRatio = mSourceImageWidth * 1.0f / mSourceImageHeight;
         float containerRatio = width * 1.0f / height;
-        Matrix.setIdentityM(mPositionMatrix, 0);
         if (containerRatio >= imageRatio) {
             // 容器比图像更宽一些，横向居中展示
             Matrix.orthoM(mPositionMatrix, 0,
@@ -247,6 +255,12 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
                     -height / (width / imageRatio), height / (width / imageRatio),
                     -1f, 1f);
         }
+
+        // 沿 x 轴旋转 180 度
+        // rotateM(float[] m, int mOffset, float a, float x, float y, float z)
+        //  * @param a angle to rotate in degrees
+        //  * @param x、y、z： 是否需要沿着 X、Y、Z 轴旋转， 0 不旋转，1f 需要旋转
+        Matrix.rotateM(mPositionMatrix, 0, 180f, 1f, 0, 0);
     }
 
     private void bindTextureToFBO(int width, int height) {
@@ -305,7 +319,7 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
                 0 /* 此处为 VBO 中的数据偏移地址 */
         );
         // 设置投影矩阵，transpose 指明是否要转置矩阵，必须为 GL_FALSE
-        GLES20.glUniformMatrix4fv(mProjectionUniformHandle, 1, false,
+        GLES20.glUniformMatrix4fv(mPosMatrixUnifHandle, 1, false,
                 mPositionMatrix, 0);
 
         // 设置纹理坐标
