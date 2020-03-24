@@ -38,7 +38,6 @@ public class MySurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.We
     public void onEGLContextCreated() {
         Log.d(TAG, "onEGLContextCreated");
         mOffScreenRenderer.onEGLContextCreated();
-        mScreenRenderer.setExternalTextureId(mOffScreenRenderer.getOutputTextureId());
         mScreenRenderer.onEGLContextCreated();
     }
 
@@ -46,6 +45,7 @@ public class MySurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.We
     public void onSurfaceChanged(int width, int height) {
         Log.d(TAG, "onSurfaceChanged " + width + "x" + height);
         mOffScreenRenderer.onSurfaceChanged(width, height);
+        mScreenRenderer.setExternalTextureId(mOffScreenRenderer.getOutputTextureId());
         mScreenRenderer.onSurfaceChanged(width, height);
     }
 

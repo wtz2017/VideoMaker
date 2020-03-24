@@ -109,6 +109,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         LogUtils.w(TAG, "surfaceChanged " + width + "x" + height);
         mGLThread.onWindowResize(width, height);
+        mGLThread.requestRender();
     }
 
     @Override
@@ -206,10 +207,14 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                 if (isSurfaceChanged) {
                     isSurfaceChanged = false;
                     onSurfaceChanged();
+                    onDraw();// 解决脏模式下当surface大小改变时不多画一次就不能正确绘制的问题
+                    swap();
+                    // 这里不需要等待，可以走到下一个循环直接画第二次
+                } else {
+                    onDraw();
+                    swap();
+                    applyRenderMode();
                 }
-                onDraw();
-                swap();
-                applyRenderMode();
             }
         }
 

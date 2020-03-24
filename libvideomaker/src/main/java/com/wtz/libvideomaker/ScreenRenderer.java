@@ -79,7 +79,7 @@ public class ScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     private void initShaderProgram() {
         // 创建着色器程序
-        String vertexSource = ShaderUtil.readRawText(mContext, R.raw.vertex_shader);
+        String vertexSource = ShaderUtil.readRawText(mContext, R.raw.vertex_onscreen_shader);
         String fragmentSource = ShaderUtil.readRawText(mContext, R.raw.texture_fragment_shader);
         int[] shaderIDs = ShaderUtil.createAndLinkProgram(vertexSource, fragmentSource);
         mVertexShaderHandle = shaderIDs[0];
