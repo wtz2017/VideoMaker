@@ -1,7 +1,6 @@
 package com.wtz.libvideomaker;
 
 import android.opengl.EGL14;
-import android.util.Log;
 import android.view.Surface;
 
 import com.wtz.libvideomaker.utils.LogUtils;
@@ -52,11 +51,16 @@ import javax.microedition.khronos.egl.EGLSurface;
  */
 public class WeEGLHelper {
     private static final String TAG = "WeEGLHelper";
+    private String mExternalTag;
 
     private EGL10 mEGL;
     private EGLDisplay mEGLDisplay;
     private EGLContext mEGLContext;
     private EGLSurface mEGLSurface;
+
+    public WeEGLHelper(String externalTag) {
+        this.mExternalTag = externalTag + " ";
+    }
 
     public void initEGL(Surface surface, EGLContext shareContext) {
         // Get an EGL instance
@@ -74,7 +78,7 @@ public class WeEGLHelper {
             throw new RuntimeException(exceptionPrefix() + "eglInitialize failed");
         }
         String versionStr = mEGL.eglQueryString(mEGLDisplay, EGL10.EGL_VERSION);
-        LogUtils.i(TAG, "egl Initialized versionCodes:" + versionCodes[0] + "," + versionCodes[1] + "; versionStr:" + versionStr);
+        LogUtils.i(TAG, mExternalTag + "egl Initialized versionCodes:" + versionCodes[0] + "," + versionCodes[1] + "; versionStr:" + versionStr);
 
         // EGL 有 3 种 Surface：
         // window - 用于屏上（onscreen）渲染
@@ -117,6 +121,7 @@ public class WeEGLHelper {
         // 创建 EGLContext，使用主流 EGL 2.0 版本
         int[] versionList = {EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL10.EGL_NONE};
         if (shareContext != null) {
+            LogUtils.w(TAG, mExternalTag + "use shareContext " + shareContext);
             mEGLContext = mEGL.eglCreateContext(
                     mEGLDisplay, configs[0], shareContext, versionList);
         } else {
@@ -132,7 +137,7 @@ public class WeEGLHelper {
         mEGLSurface = mEGL.eglCreateWindowSurface(mEGLDisplay, configs[0], surface, null);
         if (mEGLSurface == null || mEGLSurface == EGL10.EGL_NO_SURFACE) {
             if (mEGL.eglGetError() == EGL10.EGL_BAD_NATIVE_WINDOW) {
-                LogUtils.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
+                LogUtils.e(TAG, mExternalTag + "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
             }
             throw new RuntimeException(exceptionPrefix() + "create EGLSurface failed!");
         }
@@ -142,11 +147,11 @@ public class WeEGLHelper {
         if (!mEGL.eglMakeCurrent(mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext)) {
             // Could not make the context current, probably because the underlying
             // SurfaceView surface has been destroyed.
-            LogUtils.e(TAG, "eglMakeCurrent error:" + getEglErrorString(mEGL.eglGetError()));
+            LogUtils.e(TAG, mExternalTag + "eglMakeCurrent error:" + getEglErrorString(mEGL.eglGetError()));
             throw new RuntimeException(exceptionPrefix() + "eglMakeCurrent failed!");
         }
 
-        LogUtils.w(TAG, "initEGL tid=" + android.os.Process.myTid() + ", mEGL=" + mEGL
+        LogUtils.w(TAG, mExternalTag + "initEGL tid=" + android.os.Process.myTid() + ", mEGL=" + mEGL
                 + ", display=" + mEGLDisplay + ", context=" + mEGLContext + ", surface=" + mEGLSurface);
     }
 
@@ -163,7 +168,7 @@ public class WeEGLHelper {
                     exceptionPrefix() + "invoke swapBuffers() but EGL instance is null!");
         }
         if (!mEGL.eglSwapBuffers(mEGLDisplay, mEGLSurface)) {
-            LogUtils.e(TAG, "eglSwapBuffers error: " + getEglErrorString(mEGL.eglGetError()));
+            LogUtils.e(TAG, mExternalTag + "eglSwapBuffers error: " + getEglErrorString(mEGL.eglGetError()));
             return mEGL.eglGetError();
         }
         return EGL10.EGL_SUCCESS;
@@ -174,7 +179,7 @@ public class WeEGLHelper {
     }
 
     public void destroyEGL() {
-        LogUtils.w(TAG, "destroyEGL tid=" + android.os.Process.myTid() + ", mEGL=" + mEGL);
+        LogUtils.w(TAG, mExternalTag + "destroyEGL tid=" + android.os.Process.myTid() + ", mEGL=" + mEGL);
         if (mEGL == null) {
             return;
         }
@@ -183,21 +188,21 @@ public class WeEGLHelper {
             mEGL.eglMakeCurrent(mEGLDisplay, EGL10.EGL_NO_SURFACE,
                     EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
             if (!mEGL.eglDestroySurface(mEGLDisplay, mEGLSurface)) {
-                LogUtils.e(TAG, "eglDestroySurface error:" + getEglErrorString(mEGL.eglGetError()));
+                LogUtils.e(TAG, mExternalTag + "eglDestroySurface error:" + getEglErrorString(mEGL.eglGetError()));
             }
             mEGLSurface = null;
         }
 
         if (mEGLContext != null) {
             if (!mEGL.eglDestroyContext(mEGLDisplay, mEGLContext)) {
-                LogUtils.e(TAG, "eglDestroyContext error:" + getEglErrorString(mEGL.eglGetError()));
+                LogUtils.e(TAG, mExternalTag + "eglDestroyContext error:" + getEglErrorString(mEGL.eglGetError()));
             }
             mEGLContext = null;
         }
 
         if (mEGLDisplay != null) {
             if (!mEGL.eglTerminate(mEGLDisplay)) {
-                LogUtils.e(TAG, "eglTerminate error:" + getEglErrorString(mEGL.eglGetError()));
+                LogUtils.e(TAG, mExternalTag + "eglTerminate error:" + getEglErrorString(mEGL.eglGetError()));
             }
             mEGLDisplay = null;
         }
