@@ -4,53 +4,38 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
 
+import com.wtz.libvideomaker.WeGLSurfaceView;
+import com.wtz.libvideomaker.renderer.MultiImgOffRenderer;
 import com.wtz.libvideomaker.renderer.NormalScreenRenderer;
 import com.wtz.libvideomaker.renderer.OffScreenRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
-import com.wtz.libvideomaker.WeGLSurfaceView;
+import com.wtz.libvideomaker.renderer.SingleImgOffRenderer;
 import com.wtz.videomaker.R;
 
 import javax.microedition.khronos.egl.EGLContext;
 
-public class MainSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenRenderer.OnSharedTextureChangedListener {
-    private static final String TAG = "MainSurfaceView";
+public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenRenderer.OnSharedTextureChangedListener {
+    private static final String TAG = MultiImgSurfaceView.class.getSimpleName();
 
     private OffScreenRenderer mOffScreenRenderer;
     private OnScreenRenderer mOnScreenRenderer;
-    private OffScreenRenderer.OnSharedTextureChangedListener mOnSharedTextureChangedListener;
 
-    public interface OnEGLContextCreatedListener {
-        void onEGLContextCreated(EGLContext eglContext);
-    }
-
-    public interface OnEGLContextToDestroyListener {
-        void onEGLContextToDestroy();
-    }
-
-    private OnEGLContextCreatedListener mOnEGLContextCreatedListener;
-    private OnEGLContextToDestroyListener mOnEGLContextToDestroyListener;
-
-    public void setOnEGLContextCreatedListener(OnEGLContextCreatedListener listener) {
-        this.mOnEGLContextCreatedListener = listener;
-    }
-
-    public void setOnEGLContextToDestroyListener(OnEGLContextToDestroyListener listener) {
-        this.mOnEGLContextToDestroyListener = listener;
-    }
-
-    public MainSurfaceView(Context context) {
+    public MultiImgSurfaceView(Context context) {
         this(context, null);
     }
 
-    public MainSurfaceView(Context context, AttributeSet attrs) {
+    public MultiImgSurfaceView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public MainSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public MultiImgSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mOffScreenRenderer = new OffScreenRenderer(context, R.drawable.carry_up);
+        mOffScreenRenderer = new MultiImgOffRenderer(context, new int[] {
+                R.drawable.tree, R.drawable.sunflower, R.drawable.lotus,
+                R.drawable.carry_up, R.drawable.happy
+        });
         mOffScreenRenderer.setSharedTextureChangedListener(this);
 
         mOnScreenRenderer = new NormalScreenRenderer(context);
@@ -62,20 +47,9 @@ public class MainSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.
         return TAG;
     }
 
-    public int getSharedTextureId() {
-        return mOffScreenRenderer.getSharedTextureId();
-    }
-
-    public void setSharedTextureChangedListener(OffScreenRenderer.OnSharedTextureChangedListener listener) {
-        this.mOnSharedTextureChangedListener = listener;
-    }
-
     @Override
     public void onSharedTextureChanged(int textureID) {
         mOnScreenRenderer.setExternalTextureId(textureID);
-        if (mOnSharedTextureChangedListener != null) {
-            mOnSharedTextureChangedListener.onSharedTextureChanged(textureID);
-        }
     }
 
     @Override
@@ -88,9 +62,6 @@ public class MainSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.
         Log.d(TAG, "onEGLContextCreated");
         mOffScreenRenderer.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
-        if (mOnEGLContextCreatedListener != null) {
-            mOnEGLContextCreatedListener.onEGLContextCreated(getSharedEGLContext());
-        }
     }
 
     @Override
@@ -110,9 +81,6 @@ public class MainSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.
     @Override
     public void onEGLContextToDestroy() {
         Log.d(TAG, "onEGLContextToDestroy");
-        if (mOnEGLContextToDestroyListener != null) {
-            mOnEGLContextToDestroyListener.onEGLContextToDestroy();
-        }
         mOffScreenRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
     }

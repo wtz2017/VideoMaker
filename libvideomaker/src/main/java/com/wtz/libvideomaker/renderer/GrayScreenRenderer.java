@@ -5,7 +5,7 @@ import android.content.Context;
 import com.wtz.libvideomaker.R;
 
 public class GrayScreenRenderer extends OnScreenRenderer {
-    private static final String TAG = "GrayScreenRenderer";
+    private static final String TAG = GrayScreenRenderer.class.getSimpleName();
 
     public GrayScreenRenderer(Context mContext) {
         super(mContext, TAG);

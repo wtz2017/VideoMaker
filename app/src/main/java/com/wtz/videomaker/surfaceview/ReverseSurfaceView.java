@@ -7,7 +7,7 @@ import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.ReverseScreenRenderer;
 
 public class ReverseSurfaceView extends FilterSurfaceView{
-    private static final String TAG = "ReverseSurfaceView";
+    private static final String TAG = ReverseSurfaceView.class.getSimpleName();
 
     public ReverseSurfaceView(Context context) {
         super(context);

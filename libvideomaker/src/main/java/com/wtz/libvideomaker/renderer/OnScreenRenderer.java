@@ -120,7 +120,7 @@ public abstract class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
          *                                          ↓                         ┆
          *                                          y
          */
-        // 顶点坐标
+        // 顶点坐标，决定图像内容最终显示的位置区域
         mVertexCoordData = new float[]{
                 -1f, -1f,
                 1f, -1f,
@@ -135,6 +135,7 @@ public abstract class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
         mVertexCoordBuffer.position(0);
         mVertexCoordData = null;
 
+        // 纹理坐标（窗口、FBO），决定图像内容选取的区域部分和摆放方向
         // 窗口纹理坐标，上下左右四角要与顶点坐标一一对应起来
         mTextureCoordData = new float[]{
                 0f, 1f,

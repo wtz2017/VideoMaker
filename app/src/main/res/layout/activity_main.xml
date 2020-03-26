@@ -4,41 +4,21 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/colorPrimary"
     android:orientation="vertical"
-    android:padding="@dimen/common_inteval"
     tools:context=".MainActivity">
 
-    <LinearLayout
+    <Button
+        android:id="@+id/btn_multi_surface"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="0.5"
-        android:orientation="horizontal">
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="单纹理、多Surface渲染" />
 
-        <com.wtz.videomaker.surfaceview.MainSurfaceView
-            android:id="@+id/main_surface_view"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginRight="@dimen/common_inteval"
-            android:layout_weight="0.5" />
-
-        <FrameLayout
-            android:id="@+id/fl_filter_layout1"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="0.5">
-
-        </FrameLayout>
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/ll_filter_layout2"
+    <Button
+        android:id="@+id/btn_single_surface"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="@dimen/common_inteval"
-        android:layout_weight="0.5"
-        android:orientation="horizontal">
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="多纹理、单Surface渲染" />
 
-    </LinearLayout>
 </LinearLayout>

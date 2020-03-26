@@ -7,7 +7,7 @@ import com.wtz.libvideomaker.renderer.GrayScreenRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 
 public class GraySurfaceView extends FilterSurfaceView{
-    private static final String TAG = "GraySurfaceView";
+    private static final String TAG = GraySurfaceView.class.getSimpleName();
 
     public GraySurfaceView(Context context) {
         super(context);

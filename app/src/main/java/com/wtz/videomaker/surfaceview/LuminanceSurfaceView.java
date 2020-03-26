@@ -7,7 +7,7 @@ import com.wtz.libvideomaker.renderer.LuminanceScreenRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 
 public class LuminanceSurfaceView extends FilterSurfaceView{
-    private static final String TAG = "LuminanceSurfaceView";
+    private static final String TAG = LuminanceSurfaceView.class.getSimpleName();
 
     public LuminanceSurfaceView(Context context) {
         super(context);

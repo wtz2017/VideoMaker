@@ -5,7 +5,7 @@ import android.content.Context;
 import com.wtz.libvideomaker.R;
 
 public class LuminanceScreenRenderer extends OnScreenRenderer {
-    private static final String TAG = "LuminanceScreenRenderer";
+    private static final String TAG = LuminanceScreenRenderer.class.getSimpleName();
 
     public LuminanceScreenRenderer(Context mContext) {
         super(mContext, TAG);

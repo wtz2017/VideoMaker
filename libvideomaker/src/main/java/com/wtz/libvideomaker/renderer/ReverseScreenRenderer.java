@@ -5,7 +5,7 @@ import android.content.Context;
 import com.wtz.libvideomaker.R;
 
 public class ReverseScreenRenderer extends OnScreenRenderer {
-    private static final String TAG = "ReverseScreenRenderer";
+    private static final String TAG = ReverseScreenRenderer.class.getSimpleName();
 
     public ReverseScreenRenderer(Context mContext) {
         super(mContext, TAG);

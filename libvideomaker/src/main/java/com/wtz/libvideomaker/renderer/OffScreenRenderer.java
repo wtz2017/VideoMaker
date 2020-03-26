@@ -5,7 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
-import android.opengl.Matrix;
 
 import com.wtz.libvideomaker.R;
 import com.wtz.libvideomaker.WeGLSurfaceView;
@@ -17,10 +16,10 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
-    private static final String TAG = "OffScreenRenderer";
+public abstract class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     private Context mContext;
+    private String mTag;
 
     private int mVertexShaderHandle;
     private int mFragmentShaderHandle;
@@ -58,8 +57,6 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     // 用来传入顶点位置矩阵数值的句柄
     private int mPosMatrixUnifHandle;
-    // 用来保存位置变换矩阵数值的数组
-    private float[] mPositionMatrix;
     /* ---------- 顶点坐标配置：end ---------- */
 
     /* ---------- 纹理坐标配置：start ---------- */
@@ -79,10 +76,6 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
     // 用来传入纹理内容到片元着色器的句柄
     private int mTextureUniformHandle;
 
-    // 此渲染器内部处理的源图像资源
-    private int mSourceImageResId;
-    private int mSourceImageWidth;
-    private int mSourceImageHeight;
     // 此渲染器内部处理的源纹理内容句柄
     private int[] mSourceTextureIds;
 
@@ -96,9 +89,9 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     private OnSharedTextureChangedListener mSharedTextureChangedListener;
 
-    public OffScreenRenderer(Context mContext, int sourceImageResId) {
+    public OffScreenRenderer(Context mContext, String tag) {
         this.mContext = mContext;
-        this.mSourceImageResId = sourceImageResId;
+        this.mTag = tag;
     }
 
     public void setSharedTextureChangedListener(OnSharedTextureChangedListener listener) {
@@ -111,7 +104,7 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     @Override
     public void onEGLContextCreated() {
-        LogUtils.d(TAG, "onEGLContextCreated");
+        LogUtils.d(mTag, "onEGLContextCreated");
         initShaderProgram();
         initCoordinatesData();
         initFBO();
@@ -137,6 +130,21 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
         mTextureUniformHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_Texture");
     }
 
+    /**
+     * 获取所有图像绘制时共用的顶点坐标数组
+     */
+    protected abstract float[] getVertexCoordData();
+
+    /**
+     * 获取指定图像绘制时要画的顶点坐标起始索引偏移字节量
+     */
+    protected abstract int getVertexDrawOffsetBytes(int sourceImgIndex);
+
+    /**
+     * 获取指定图像绘制时要画的顶点数量
+     */
+    protected abstract int getVertexDrawCount(int sourceImgIndex);
+
     private void initCoordinatesData() {
         /*
          *        归一化顶点坐标系                窗口纹理坐标系             FBO 纹理坐标系
@@ -152,13 +160,8 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
          *                                          ↓                         ┆
          *                                          y
          */
-        // 顶点坐标
-        mVertexCoordData = new float[]{
-                -1f, -1f,
-                1f, -1f,
-                -1f, 1f,
-                1f, 1f
-        };
+        // 顶点坐标，决定图像内容最终显示的位置区域
+        mVertexCoordData = getVertexCoordData();
         mVertexCoordBuffer = ByteBuffer
                 .allocateDirect(mVertexCoordData.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder())
@@ -167,9 +170,7 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
         mVertexCoordBuffer.position(0);
         mVertexCoordData = null;
 
-        // 创建投影矩阵(4x4)返回值存储的数组
-        mPositionMatrix = new float[16];
-
+        // 纹理坐标（窗口、FBO），决定图像内容选取的区域部分和摆放方向
         // FBO 纹理坐标，上下左右四角要与顶点坐标一一对应起来
         mTextureCoordData = new float[]{
 //                0f, 0f,
@@ -226,20 +227,40 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
         mOldOutputTextureIds = new int[]{0};
     }
 
-    private void loadSourceTexture() {
-        mSourceTextureIds = TextureUtils.genTexture2D(1);
+    /**
+     * 获取需要绘制的图像资源ID数组
+     */
+    protected abstract int[] getSourceImageResIds();
 
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSourceTextureIds[0]);
-        Bitmap bitmap = BitmapFactory.decodeResource(mContext.getResources(), mSourceImageResId);
-        mSourceImageWidth = bitmap.getWidth();
-        mSourceImageHeight = bitmap.getHeight();
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+    private void loadSourceTexture() {
+        int[] resIds = getSourceImageResIds();
+        int[][] mSourceTextureInfos = new int[resIds.length][3];
+        mSourceTextureIds = TextureUtils.genTexture2D(resIds.length);
+
+        for (int i = 0; i < resIds.length; i++) {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSourceTextureIds[i]);
+            Bitmap bitmap = BitmapFactory.decodeResource(mContext.getResources(), resIds[i]);
+            mSourceTextureInfos[i][0] = mSourceTextureIds[i];
+            mSourceTextureInfos[i][1] = bitmap.getWidth();
+            mSourceTextureInfos[i][2] = bitmap.getHeight();
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+        }
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
+        onSourceImageLoaded(mSourceTextureInfos);
     }
+
+    /**
+     * 返回此渲染器内部加载的源图像资源信息
+     *
+     * @param mSourceTextureInfos 每个图像信息有一个数组，内容为：纹理ID、图像宽、图像高；
+     *                            多个图像的信息组成二维数组
+     */
+    protected abstract void onSourceImageLoaded(int[][] mSourceTextureInfos);
 
     @Override
     public void onSurfaceChanged(int width, int height) {
-        LogUtils.d(TAG, "onSurfaceChanged " + width + "x" + height);
+        LogUtils.d(mTag, "onSurfaceChanged " + width + "x" + height);
         GLES20.glViewport(0, 0, width, height);
         changePositionMatrix(width, height);
         bindTextureToFBO(width, height);
@@ -248,33 +269,12 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
     /**
      * 改变位置矩阵
      */
-    private void changePositionMatrix(int width, int height) {
-        // 初始化单位矩阵
-        Matrix.setIdentityM(mPositionMatrix, 0);
+    protected abstract void changePositionMatrix(int width, int height);
 
-        // 设置正交投影
-        float imageRatio = mSourceImageWidth * 1.0f / mSourceImageHeight;
-        float containerRatio = width * 1.0f / height;
-        if (containerRatio >= imageRatio) {
-            // 容器比图像更宽一些，横向居中展示
-            Matrix.orthoM(mPositionMatrix, 0,
-                    -width / (height * imageRatio), width / (height * imageRatio),
-                    -1f, 1f,
-                    -1f, 1f);
-        } else {
-            // 容器比图像更高一些，纵向居中展示
-            Matrix.orthoM(mPositionMatrix, 0,
-                    -1, 1,
-                    -height / (width / imageRatio), height / (width / imageRatio),
-                    -1f, 1f);
-        }
-
-        // 沿 x 轴旋转 180 度
-        // rotateM(float[] m, int mOffset, float a, float x, float y, float z)
-        //  * @param a angle to rotate in degrees
-        //  * @param x、y、z： 是否需要沿着 X、Y、Z 轴旋转， 0 不旋转，1f 需要旋转
-        Matrix.rotateM(mPositionMatrix, 0, 180f, 1f, 0, 0);
-    }
+    /**
+     * 获取指定图像绘制时位置变换矩阵
+     */
+    protected abstract float[] getPositionMatrix(int sourceImgIndex);
 
     private void bindTextureToFBO(int width, int height) {
         mOldOutputTextureIds[0] = mOutputTextureIds[0];
@@ -282,7 +282,7 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
         /* ------ 1.创建要附加到 FBO 的纹理对象，此纹理将最终作为输出供外部使用 ------ */
         int[] textureIds = TextureUtils.genTexture2D(1);
         mOutputTextureIds[0] = textureIds[0];
-        LogUtils.d(TAG, "bindTextureToFBO texture current=" + textureIds[0] + ",old=" + mOldOutputTextureIds[0]);
+        LogUtils.d(mTag, "bindTextureToFBO texture current=" + textureIds[0] + ",old=" + mOldOutputTextureIds[0]);
         // 绑定刚创建的附加纹理对象
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mOutputTextureIds[0]);
         // 为此纹理分配内存
@@ -326,41 +326,45 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分
         GLES20.glUseProgram(mProgramHandle);
 
-        // 准备设置坐标，先绑定 VBO ---------->
+        // 准备设置坐标，绑定 VBO
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVBOIds[0]);
 
-        // 设置顶点坐标
-        GLES20.glEnableVertexAttribArray(mVertexCoordHandle);
-        GLES20.glVertexAttribPointer(mVertexCoordHandle, VERTEX_COORD_DATA_SIZE,
-                GLES20.GL_FLOAT, false, 8,
-                0 /* 此处为 VBO 中的数据偏移地址 */
-        );
-        // 设置投影矩阵，transpose 指明是否要转置矩阵，必须为 GL_FALSE
-        GLES20.glUniformMatrix4fv(mPosMatrixUnifHandle, 1, false,
-                mPositionMatrix, 0);
+        for (int i = 0; i < mSourceTextureIds.length; i++) {
+            // 启用顶点坐标传值句柄
+            GLES20.glEnableVertexAttribArray(mVertexCoordHandle);
+            // 设置顶点坐标
+            GLES20.glVertexAttribPointer(mVertexCoordHandle, VERTEX_COORD_DATA_SIZE,
+                    GLES20.GL_FLOAT, false, 8,
+                    getVertexDrawOffsetBytes(i) /* 此处为 VBO 中的数据偏移地址 */
+            );
+            // 设置位置矩阵，transpose 指明是否要转置矩阵，必须为 GL_FALSE
+            GLES20.glUniformMatrix4fv(mPosMatrixUnifHandle, 1, false,
+                    getPositionMatrix(i), 0);
 
-        // 设置纹理坐标
-        GLES20.glEnableVertexAttribArray(mTextureCoordHandle);
-        GLES20.glVertexAttribPointer(mTextureCoordHandle, TEXTURE_COORD_DATA_SIZE,
-                GLES20.GL_FLOAT, false, 8,
-                mVertexCoordBytes /* 此处为 VBO 中的数据偏移地址 */
-        );
+            // 启用纹理坐标传值句柄
+            GLES20.glEnableVertexAttribArray(mTextureCoordHandle);
+            // 设置纹理坐标
+            GLES20.glVertexAttribPointer(mTextureCoordHandle, TEXTURE_COORD_DATA_SIZE,
+                    GLES20.GL_FLOAT, false, 8,
+                    mVertexCoordBytes /* 此处为 VBO 中的数据偏移地址 */
+            );
 
-        // 所有坐标设置完成后，解绑 VBO <----------
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+            // 将纹理单元激活，并绑定到指定纹理对象数据
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSourceTextureIds[i]);
+            // 将纹理数据传入到片元着色器 Uniform 变量中
+            GLES20.glUniform1i(mTextureUniformHandle, 0);// 诉纹理标准采样器在着色器中使用纹理单元 0
 
-        // 将纹理单元激活，并绑定到指定纹理对象数据
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSourceTextureIds[0]);
-
-        // 将纹理数据传入到片元着色器 Uniform 变量中
-        GLES20.glUniform1i(mTextureUniformHandle, 0);// 诉纹理标准采样器在着色器中使用纹理单元 0
-
-        // 开始渲染图形：按照绑定的顶点坐标数组从第 1 个开始画 4 个点，一共 2 个三角形，组成一个矩形
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+            // 开始渲染图形：按照绑定的顶点坐标数组从第 1 个开始画 n 个点，
+            // 3 个点组成一个三角形，4个点一共 2 个三角形，组成一个矩形
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, getVertexDrawCount(i));
+        }
 
         // 解绑 Texture
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
+        // 解绑 VBO
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
         // 解绑 FBO，从而可以恢复到屏上渲染
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
@@ -368,12 +372,11 @@ public class OffScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     @Override
     public void onEGLContextToDestroy() {
-        LogUtils.d(TAG, "onEGLContextToDestroy");
+        LogUtils.d(mTag, "onEGLContextToDestroy");
         if (mVertexCoordBuffer != null) {
             mVertexCoordBuffer.clear();
             mVertexCoordBuffer = null;
         }
-        mPositionMatrix = null;
         if (mTextureCoordBuffer != null) {
             mTextureCoordBuffer.clear();
             mTextureCoordBuffer = null;
