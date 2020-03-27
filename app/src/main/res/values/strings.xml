@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">VideoMaker</string>
+
+    <string name="permission_dialog_title">权限请求</string>
+    <string name="permission_dialog_confirm">同意</string>
+    <string name="permission_dialog_cancel">拒绝</string>
+    <string name="message_permission_rationale">请授权以下权限以保证程序能正常运行:\n\n%1$s</string>
+    <string name="permission_name_calendar">Calendar</string>
+    <string name="permission_name_camera">Camera</string>
+    <string name="permission_name_contacts">Contacts</string>
+    <string name="permission_name_accounts">Accounts</string>
+    <string name="permission_name_location">Location</string>
+    <string name="permission_name_microphone">Microphone</string>
+    <string name="permission_name_phone">Phone</string>
+    <string name="permission_name_sensors">Body Sensors</string>
+    <string name="permission_name_sms">SMS</string>
+    <string name="permission_name_storage">Storage</string>
+    <string name="permission_name_write_settings">系统设置</string>
+    <string name="permission_name_system_alert_window">显示悬浮窗</string>
+    <string name="permission_name_install_packages">安装应用</string>
+    <string name="permission_name_send_notification">发送通知</string>
+    <string name="permission_name_access_notification">访问系统通知</string>
 </resources>
