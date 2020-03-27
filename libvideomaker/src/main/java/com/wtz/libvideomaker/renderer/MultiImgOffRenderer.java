@@ -3,7 +3,7 @@ package com.wtz.libvideomaker.renderer;
 import android.content.Context;
 import android.opengl.Matrix;
 
-public class MultiImgOffRenderer extends OffScreenRenderer {
+public class MultiImgOffRenderer extends OffScreenImgRenderer {
 
     private static final String TAG = MultiImgOffRenderer.class.getSimpleName();
 

@@ -18,7 +18,7 @@ public class GrayScreenRenderer extends OnScreenRenderer {
 
     @Override
     protected int getFragmentShaderResId() {
-        return R.raw.gray_texture_fragment_shader;
+        return R.raw.fragment_gray_texture2d_shader;
     }
 
 }

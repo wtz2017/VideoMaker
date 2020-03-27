@@ -1,4 +1,4 @@
-package com.wtz.libvideomaker;
+package com.wtz.libvideomaker.egl;
 
 import android.content.Context;
 import android.util.AttributeSet;

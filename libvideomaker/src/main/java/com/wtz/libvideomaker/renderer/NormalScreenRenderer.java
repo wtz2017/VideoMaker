@@ -18,7 +18,7 @@ public class NormalScreenRenderer extends OnScreenRenderer {
 
     @Override
     protected int getFragmentShaderResId() {
-        return R.raw.normal_texture_fragment_shader;
+        return R.raw.fragment_normal_texture2d_shader;
     }
 
 }

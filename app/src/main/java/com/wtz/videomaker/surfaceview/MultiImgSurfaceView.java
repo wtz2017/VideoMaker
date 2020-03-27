@@ -4,20 +4,17 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
 
-import com.wtz.libvideomaker.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLSurfaceView;
 import com.wtz.libvideomaker.renderer.MultiImgOffRenderer;
 import com.wtz.libvideomaker.renderer.NormalScreenRenderer;
-import com.wtz.libvideomaker.renderer.OffScreenRenderer;
+import com.wtz.libvideomaker.renderer.OffScreenImgRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
-import com.wtz.libvideomaker.renderer.SingleImgOffRenderer;
 import com.wtz.videomaker.R;
 
-import javax.microedition.khronos.egl.EGLContext;
-
-public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenRenderer.OnSharedTextureChangedListener {
+public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenImgRenderer.OnSharedTextureChangedListener {
     private static final String TAG = MultiImgSurfaceView.class.getSimpleName();
 
-    private OffScreenRenderer mOffScreenRenderer;
+    private OffScreenImgRenderer mOffScreenImgRenderer;
     private OnScreenRenderer mOnScreenRenderer;
 
     public MultiImgSurfaceView(Context context) {
@@ -32,14 +29,14 @@ public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceV
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mOffScreenRenderer = new MultiImgOffRenderer(context, new int[] {
+        mOffScreenImgRenderer = new MultiImgOffRenderer(context, new int[] {
                 R.drawable.tree, R.drawable.sunflower, R.drawable.lotus,
                 R.drawable.carry_up, R.drawable.happy
         });
-        mOffScreenRenderer.setSharedTextureChangedListener(this);
+        mOffScreenImgRenderer.setSharedTextureChangedListener(this);
 
         mOnScreenRenderer = new NormalScreenRenderer(context);
-        mOnScreenRenderer.setExternalTextureId(mOffScreenRenderer.getSharedTextureId());
+        mOnScreenRenderer.setExternalTextureId(mOffScreenImgRenderer.getSharedTextureId());
     }
 
     @Override
@@ -60,28 +57,28 @@ public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceV
     @Override
     public void onEGLContextCreated() {
         Log.d(TAG, "onEGLContextCreated");
-        mOffScreenRenderer.onEGLContextCreated();
+        mOffScreenImgRenderer.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
     }
 
     @Override
     public void onSurfaceChanged(int width, int height) {
         Log.d(TAG, "onSurfaceChanged " + width + "x" + height);
-        mOffScreenRenderer.onSurfaceChanged(width, height);
+        mOffScreenImgRenderer.onSurfaceChanged(width, height);
         mOnScreenRenderer.onSurfaceChanged(width, height);
     }
 
     @Override
     public void onDrawFrame() {
         Log.d(TAG, "onDrawFrame");
-        mOffScreenRenderer.onDrawFrame();
+        mOffScreenImgRenderer.onDrawFrame();
         mOnScreenRenderer.onDrawFrame();
     }
 
     @Override
     public void onEGLContextToDestroy() {
         Log.d(TAG, "onEGLContextToDestroy");
-        mOffScreenRenderer.onEGLContextToDestroy();
+        mOffScreenImgRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
     }
 

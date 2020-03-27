@@ -6,19 +6,19 @@ import android.util.Log;
 
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.NormalScreenRenderer;
-import com.wtz.libvideomaker.renderer.OffScreenRenderer;
+import com.wtz.libvideomaker.renderer.OffScreenImgRenderer;
 import com.wtz.libvideomaker.renderer.SingleImgOffRenderer;
-import com.wtz.libvideomaker.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLSurfaceView;
 import com.wtz.videomaker.R;
 
 import javax.microedition.khronos.egl.EGLContext;
 
-public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenRenderer.OnSharedTextureChangedListener {
+public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenImgRenderer.OnSharedTextureChangedListener {
     private static final String TAG = SingleImgSurfaceView.class.getSimpleName();
 
-    private OffScreenRenderer mOffScreenRenderer;
+    private OffScreenImgRenderer mOffScreenImgRenderer;
     private OnScreenRenderer mOnScreenRenderer;
-    private OffScreenRenderer.OnSharedTextureChangedListener mOnSharedTextureChangedListener;
+    private OffScreenImgRenderer.OnSharedTextureChangedListener mOnSharedTextureChangedListener;
 
     public interface OnEGLContextCreatedListener {
         void onEGLContextCreated(EGLContext eglContext);
@@ -51,11 +51,11 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mOffScreenRenderer = new SingleImgOffRenderer(context, R.drawable.carry_up);
-        mOffScreenRenderer.setSharedTextureChangedListener(this);
+        mOffScreenImgRenderer = new SingleImgOffRenderer(context, R.drawable.carry_up);
+        mOffScreenImgRenderer.setSharedTextureChangedListener(this);
 
         mOnScreenRenderer = new NormalScreenRenderer(context);
-        mOnScreenRenderer.setExternalTextureId(mOffScreenRenderer.getSharedTextureId());
+        mOnScreenRenderer.setExternalTextureId(mOffScreenImgRenderer.getSharedTextureId());
     }
 
     @Override
@@ -64,10 +64,10 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
     }
 
     public int getSharedTextureId() {
-        return mOffScreenRenderer.getSharedTextureId();
+        return mOffScreenImgRenderer.getSharedTextureId();
     }
 
-    public void setSharedTextureChangedListener(OffScreenRenderer.OnSharedTextureChangedListener listener) {
+    public void setSharedTextureChangedListener(OffScreenImgRenderer.OnSharedTextureChangedListener listener) {
         this.mOnSharedTextureChangedListener = listener;
     }
 
@@ -87,7 +87,7 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
     @Override
     public void onEGLContextCreated() {
         Log.d(TAG, "onEGLContextCreated");
-        mOffScreenRenderer.onEGLContextCreated();
+        mOffScreenImgRenderer.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
         if (mOnEGLContextCreatedListener != null) {
             mOnEGLContextCreatedListener.onEGLContextCreated(getSharedEGLContext());
@@ -97,14 +97,14 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
     @Override
     public void onSurfaceChanged(int width, int height) {
         Log.d(TAG, "onSurfaceChanged " + width + "x" + height);
-        mOffScreenRenderer.onSurfaceChanged(width, height);
+        mOffScreenImgRenderer.onSurfaceChanged(width, height);
         mOnScreenRenderer.onSurfaceChanged(width, height);
     }
 
     @Override
     public void onDrawFrame() {
         Log.d(TAG, "onDrawFrame");
-        mOffScreenRenderer.onDrawFrame();
+        mOffScreenImgRenderer.onDrawFrame();
         mOnScreenRenderer.onDrawFrame();
     }
 
@@ -114,7 +114,7 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
         if (mOnEGLContextToDestroyListener != null) {
             mOnEGLContextToDestroyListener.onEGLContextToDestroy();
         }
-        mOffScreenRenderer.onEGLContextToDestroy();
+        mOffScreenImgRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
     }
 

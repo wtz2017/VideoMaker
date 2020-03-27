@@ -9,7 +9,7 @@ import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.wtz.libvideomaker.renderer.OffScreenRenderer;
+import com.wtz.libvideomaker.renderer.OffScreenImgRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.videomaker.surfaceview.GraySurfaceView;
 import com.wtz.videomaker.surfaceview.LuminanceSurfaceView;
@@ -20,7 +20,7 @@ import javax.microedition.khronos.egl.EGLContext;
 
 
 public class MultiSurfaceActivity extends AppCompatActivity
-        implements OffScreenRenderer.OnSharedTextureChangedListener,
+        implements OffScreenImgRenderer.OnSharedTextureChangedListener,
         SingleImgSurfaceView.OnEGLContextCreatedListener, SingleImgSurfaceView.OnEGLContextToDestroyListener {
     private static final String TAG = "MultiSurfaceActivity";
 

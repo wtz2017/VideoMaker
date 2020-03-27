@@ -3,7 +3,7 @@ package com.wtz.libvideomaker.renderer;
 import android.content.Context;
 import android.opengl.GLES20;
 
-import com.wtz.libvideomaker.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLSurfaceView;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 

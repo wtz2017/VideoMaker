@@ -18,7 +18,7 @@ public class LuminanceScreenRenderer extends OnScreenRenderer {
 
     @Override
     protected int getFragmentShaderResId() {
-        return R.raw.luminance_texture_fragment_shader;
+        return R.raw.fragment_luminance_texture2d_shader;
     }
 
 }

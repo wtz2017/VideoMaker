@@ -3,7 +3,7 @@ package com.wtz.libvideomaker.renderer;
 import android.content.Context;
 import android.opengl.Matrix;
 
-public class SingleImgOffRenderer extends OffScreenRenderer {
+public class SingleImgOffRenderer extends OffScreenImgRenderer {
 
     private static final String TAG = SingleImgOffRenderer.class.getSimpleName();
 

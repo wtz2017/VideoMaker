@@ -18,7 +18,7 @@ public class ReverseScreenRenderer extends OnScreenRenderer {
 
     @Override
     protected int getFragmentShaderResId() {
-        return R.raw.reverse_texture_fragment_shader;
+        return R.raw.fragment_reverse_texture2d_shader;
     }
 
 }
