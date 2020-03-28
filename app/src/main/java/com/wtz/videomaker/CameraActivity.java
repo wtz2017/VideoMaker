@@ -60,6 +60,31 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
     }
 
     @Override
+    protected void onStart() {
+        LogUtils.d(TAG, "onStart");
+        super.onStart();
+    }
+
+    @Override
+    protected void onResume() {
+        LogUtils.d(TAG, "onResume");
+        super.onResume();
+        mWeCameraView.onActivityResume();
+    }
+
+    @Override
+    protected void onPause() {
+        LogUtils.d(TAG, "onPause");
+        super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        LogUtils.d(TAG, "onStop");
+        super.onStop();
+    }
+
+    @Override
     protected void onDestroy() {
         LogUtils.d(TAG, "onDestroy");
         if (mPermissionHandler != null) {
