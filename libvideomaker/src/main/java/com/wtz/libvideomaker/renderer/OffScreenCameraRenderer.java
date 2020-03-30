@@ -2,9 +2,13 @@ package com.wtz.libvideomaker.renderer;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.hardware.Camera;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
+import android.view.Display;
+import android.view.Surface;
+import android.view.WindowManager;
 
 import com.wtz.libvideomaker.R;
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
@@ -20,6 +24,15 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
     private static final String TAG = OffScreenCameraRenderer.class.getSimpleName();
 
     private Context mContext;
+
+    private Display mDisplay;
+    private int mRotationAngle;
+    private int mSurfaceWidth;
+    private int mSurfaceHeight;
+    private int mSourceImageWidth;
+    private int mSourceImageHeight;
+    private int mSourceRotatedWidth;
+    private int mSourceRotatedHeight;
 
     private int mVertexShaderHandle;
     private int mFragmentShaderHandle;
@@ -57,6 +70,8 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
 
     // 用来保存位置变换矩阵数值的数组
     private float[] mPositionMatrix;
+    // 用来保存投影矩阵数值的数组
+    private float[] mProjectionMatrix;
 
     // 用来传入顶点位置矩阵数值的句柄
     private int mPosMatrixUnifHandle;
@@ -82,6 +97,7 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
     // Camera preview
     private int mCameraTextureID;
     private SurfaceTexture mCameraSurfaceTexture;
+    private int mCameraId;
 
     // 准备输出的纹理内容句柄
     private int[] mOutputTextureIds;
@@ -174,6 +190,7 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
 
         // 创建位置转换矩阵(4x4)返回值存储的数组
         mPositionMatrix = new float[16];
+        mProjectionMatrix = new float[16];
 
         // 纹理坐标（窗口、FBO），决定图像内容选取的区域部分和摆放方向
         // FBO 纹理坐标，上下左右四角要与顶点坐标一一对应起来
@@ -240,23 +257,137 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
         mSurfaceTextureListener.onSurfaceTextureCreated(mCameraSurfaceTexture);
     }
 
+    public void initCameraParams(int cameraId, int previewWidth, int previewHeight) {
+        LogUtils.w(TAG, "initCameraParams id=" + mCameraId + "; preview size=" + previewWidth + "x" + previewHeight);
+        saveCameraParams(cameraId, previewWidth, previewHeight);
+        mRotationAngle = getRotationAngle();
+    }
+
+    public void onCameraChanged(int cameraId, int previewWidth, int previewHeight) {
+        LogUtils.w(TAG, "onCameraChanged id=" + mCameraId + "; preview size=" + previewWidth + "x" + previewHeight);
+        saveCameraParams(cameraId, previewWidth, previewHeight);
+        changePositionMatrix();
+    }
+
+    private void saveCameraParams(int cameraId, int previewWidth, int previewHeight) {
+        this.mCameraId = cameraId;
+        this.mSourceImageWidth = previewWidth;
+        this.mSourceImageHeight = previewHeight;
+    }
+
+    public void onOrientationChanged() {
+        mRotationAngle = getRotationAngle();
+        LogUtils.d(TAG, "onOrientationChanged angle=" + mRotationAngle);
+        changePositionMatrix();
+    }
+
+    private int getRotationAngle() {
+        if (mDisplay == null) {
+            mDisplay = ((WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+        }
+        return mDisplay.getRotation();
+    }
+
     @Override
     public void onSurfaceChanged(int width, int height) {
         LogUtils.d(TAG, "onSurfaceChanged " + width + "x" + height);
+        mSurfaceWidth = width;
+        mSurfaceHeight = height;
         GLES20.glViewport(0, 0, width, height);
-        changePositionMatrix(width, height);
+        changePositionMatrix();
         bindTextureToFBO(width, height);
     }
 
-    protected void changePositionMatrix(int width, int height) {
+    private void changePositionMatrix() {
         // 初始化单位矩阵
         Matrix.setIdentityM(mPositionMatrix, 0);
+        Matrix.setIdentityM(mProjectionMatrix, 0);
 
-        // 沿 x 轴旋转 180 度
+        // 旋转角度
         // rotateM(float[] m, int mOffset, float a, float x, float y, float z)
-        //  * @param a angle to rotate in degrees
+        //  * @param a angle to rotate in degrees，正值逆时针，负值顺时针
         //  * @param x、y、z： 是否需要沿着 X、Y、Z 轴旋转， 0 不旋转，1f 需要旋转
-        Matrix.rotateM(mPositionMatrix, 0, 180f, 1f, 1, 0);
+        switch (mRotationAngle) {
+            case Surface.ROTATION_0:
+                if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                    Matrix.rotateM(mPositionMatrix, 0, 90f, 0, 0, 1f);
+                    Matrix.rotateM(mPositionMatrix, 0, 180, 1, 0, 0);
+                    setRotatedImgWH(true);
+                } else {
+                    Matrix.rotateM(mPositionMatrix, 0, 90f, 0f, 0f, 1f);
+                    setRotatedImgWH(true);
+                }
+
+                break;
+            case Surface.ROTATION_90:
+                if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                    Matrix.rotateM(mPositionMatrix, 0, 180, 0, 0, 1);
+                    Matrix.rotateM(mPositionMatrix, 0, 180, 0, 1, 0);
+                    setRotatedImgWH(false);
+                } else {
+                    Matrix.rotateM(mPositionMatrix, 0, 180f, 0f, 0f, 1f);
+                    setRotatedImgWH(false);
+                }
+                break;
+            case Surface.ROTATION_180:
+                if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                    Matrix.rotateM(mPositionMatrix, 0, 90f, 0.0f, 0f, 1f);
+                    Matrix.rotateM(mPositionMatrix, 0, 180f, 0.0f, 1f, 0f);
+                    setRotatedImgWH(true);
+                } else {
+                    Matrix.rotateM(mPositionMatrix, 0, -90, 0f, 0f, 1f);
+                    setRotatedImgWH(true);
+                }
+                break;
+            case Surface.ROTATION_270:
+                if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                    Matrix.rotateM(mPositionMatrix, 0, 180f, 0.0f, 1f, 0f);
+                    setRotatedImgWH(false);
+                } else {
+                    Matrix.rotateM(mPositionMatrix, 0, 0f, 0f, 0f, 1f);
+                    setRotatedImgWH(false);
+                }
+                break;
+        }
+
+        // 正交投影
+        float imageRatio = mSourceRotatedWidth * 1.0f / mSourceRotatedHeight;
+        float containerRatio = mSurfaceWidth * 1.0f / mSurfaceHeight;
+        if (containerRatio >= imageRatio) {
+            // 容器比图像更宽一些，横向居中展示
+            float imageNormalWidth = 1 - (-1);
+            float containerNormalWidth = mSurfaceWidth / (mSurfaceHeight * imageRatio) * imageNormalWidth;
+            Matrix.orthoM(mProjectionMatrix, 0,
+                    -containerNormalWidth / 2, containerNormalWidth / 2,
+                    -1f, 1f,
+                    -1f, 1f);
+        } else {
+            // 容器比图像更高一些，纵向居中展示
+            float imageNormalHeight = 1 - (-1);
+            float containerNormalHeight = mSurfaceHeight / (mSurfaceWidth / imageRatio) * imageNormalHeight;
+            Matrix.orthoM(mProjectionMatrix, 0,
+                    -1, 1,
+                    -containerNormalHeight / 2, containerNormalHeight / 2,
+                    -1f, 1f);
+        }
+
+        // 注意：旋转矩阵在左、投影矩阵在右
+        Matrix.multiplyMM(mPositionMatrix, 0, mPositionMatrix, 0, mProjectionMatrix, 0);
+    }
+
+    /**
+     * 设置旋转后的显示图像宽高，这会影响后续正交投影的判断
+     *
+     * @param swap 是否交换原始图像宽高，对于沿 Z 轴旋转了 90 或 270 度场景需要交换
+     */
+    private void setRotatedImgWH(boolean swap) {
+        if (swap) {
+            mSourceRotatedWidth = mSourceImageHeight;
+            mSourceRotatedHeight = mSourceImageWidth;
+        } else {
+            mSourceRotatedWidth = mSourceImageWidth;
+            mSourceRotatedHeight = mSourceImageHeight;
+        }
     }
 
     private void bindTextureToFBO(int width, int height) {
@@ -389,7 +520,6 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
             mOldOutputTextureIds = null;
         }
         if (mCameraSurfaceTexture != null) {
-            mCameraSurfaceTexture.updateTexImage();//TODO TEST---
             mCameraSurfaceTexture.release();
             mCameraSurfaceTexture = null;
         }
@@ -402,6 +532,8 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
             mVBOIds = null;
         }
         mPositionMatrix = null;
+        mProjectionMatrix = null;
+        mDisplay = null;
     }
 
 }

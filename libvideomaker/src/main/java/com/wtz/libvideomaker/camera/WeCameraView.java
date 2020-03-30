@@ -1,11 +1,9 @@
 package com.wtz.libvideomaker.camera;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
 import android.util.AttributeSet;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
@@ -16,8 +14,11 @@ import com.wtz.libvideomaker.utils.LogUtils;
 
 public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer,
         OffScreenCameraRenderer.OnSharedTextureChangedListener,
-        OffScreenCameraRenderer.SurfaceTextureListener, Handler.Callback {
+        OffScreenCameraRenderer.SurfaceTextureListener {
     private static final String TAG = WeCameraView.class.getSimpleName();
+
+    private int mCameraViewWidth;
+    private int mCameraViewHeight;
 
     private WeCamera mCamera;
     private int mCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
@@ -25,17 +26,16 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     private OffScreenCameraRenderer mOffScreenCameraRenderer;
     private OnScreenRenderer mOnScreenRenderer;
 
-    private Handler mUIHandler;
-    /**
-     * 脏模式渲染前提下，旋转屏幕导致大概率出现不回调 onFrameAvailable，以至于不再渲染预览画面
-     * 直接改成持续渲染模式可以解决此问题，但是性能不如脏模式渲染，于是取此两者折衷的方案：
-     * 在旋转屏幕时连续请求渲染几秒，根据实际经验调节此值，这样能在不影响性能的情况下解决问题
-     * 此消息用于在 onSurfaceChanged（旋转屏幕）时主动发起连续几秒的渲染请求
-     */
-    private static final int MSG_REQUEST_RENDER = 1;
-    private static final int REQ_RENDER_INTERVAL_MILLS = 100;
-    private static final int MAX_REQ_RENDER_DURATION_MILLS = 5000;
-    private long mStartReqRenderTime;
+    public interface OnCameraSizeChangedListener {
+        void onCameraSizeChanged(int surfaceWidth, int surfaceHeight,
+                                 int previewWidth, int previewHeight);
+    }
+
+    private OnCameraSizeChangedListener mOnCameraSizeChangedListener;
+
+    public void setOnCameraSizeChangedListener(OnCameraSizeChangedListener listener) {
+        this.mOnCameraSizeChangedListener = listener;
+    }
 
     public WeCameraView(Context context) {
         this(context, null);
@@ -47,7 +47,9 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
 
     public WeCameraView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        setRenderMode(RENDERMODE_WHEN_DIRTY);
+//        setRenderMode(RENDERMODE_WHEN_DIRTY);
+        // 暂时用持续渲染模式解决脏模式下有时 onFrameAvailable 不回调导致不渲染的 BUG
+        setRenderMode(RENDERMODE_CONTINUOUSLY);
 
         mOffScreenCameraRenderer = new OffScreenCameraRenderer(context, this);
         mOffScreenCameraRenderer.setSharedTextureChangedListener(this);
@@ -74,7 +76,6 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     @Override
     public void onEGLContextCreated() {
         LogUtils.d(TAG, "onEGLContextCreated");
-        mUIHandler = new Handler(Looper.getMainLooper(), this);
         mOffScreenCameraRenderer.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
     }
@@ -83,23 +84,33 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     public void onSurfaceTextureCreated(SurfaceTexture surfaceTexture) {
         LogUtils.d(TAG, "onEGLContextCreated");
         mCamera = new WeCamera(surfaceTexture);
-        mCamera.startPreview(mCameraId);
+        int[] size = mCamera.startPreview(mCameraId, mCameraViewWidth, mCameraViewHeight);
+        if (size != null) {
+            mOffScreenCameraRenderer.initCameraParams(mCameraId, size[0], size[1]);
+        } else {
+            // 相机打开失败
+            LogUtils.e(TAG, "onSurfaceTextureCreated camera open failed! id=" + mCameraId);
+        }
     }
 
     public void startBackCamera() {
-        mCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-        changeCamera(mCameraId);
+        startCamera(Camera.CameraInfo.CAMERA_FACING_BACK);
     }
 
     public void startFrontCamera() {
-        mCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-        changeCamera(mCameraId);
+        startCamera(Camera.CameraInfo.CAMERA_FACING_FRONT);
     }
 
-    private void changeCamera(int cameraId) {
+    private void startCamera(int cameraId) {
         this.mCameraId = cameraId;
         if (mCamera != null) {
-            mCamera.changeCamera(cameraId);
+            int[] size = mCamera.changeCamera(mCameraId, mCameraViewWidth, mCameraViewHeight);
+            if (size != null) {
+                mOffScreenCameraRenderer.onCameraChanged(mCameraId, size[0], size[1]);
+            } else {
+                // 相机打开失败
+                LogUtils.e(TAG, "changeCamera open failed! id=" + mCameraId);
+            }
         }
     }
 
@@ -113,18 +124,17 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         requestRender();
     }
 
+    public void onActivityConfigurationChanged(Configuration newConfig) {
+        LogUtils.d(TAG, "onActivityConfigurationChanged " + newConfig);
+        mOffScreenCameraRenderer.onOrientationChanged();
+    }
+
     @Override
-    public boolean handleMessage(Message msg) {
-        switch (msg.what) {
-            case MSG_REQUEST_RENDER:
-                mUIHandler.removeMessages(MSG_REQUEST_RENDER);
-                if (System.currentTimeMillis() - mStartReqRenderTime <= MAX_REQ_RENDER_DURATION_MILLS) {
-                    requestRender();
-                    mUIHandler.sendEmptyMessageDelayed(MSG_REQUEST_RENDER, REQ_RENDER_INTERVAL_MILLS);
-                }
-                break;
-        }
-        return false;
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        LogUtils.d(TAG, "onSizeChanged " + w + "x" + h);
+        super.onSizeChanged(w, h, oldw, oldh);
+        mCameraViewWidth = w;
+        mCameraViewHeight = h;
     }
 
     @Override
@@ -133,14 +143,18 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         mOffScreenCameraRenderer.onSurfaceChanged(width, height);
         mOnScreenRenderer.onSurfaceChanged(width, height);
 
-        mStartReqRenderTime = System.currentTimeMillis();
-        mUIHandler.removeMessages(MSG_REQUEST_RENDER);
-        mUIHandler.sendEmptyMessageDelayed(MSG_REQUEST_RENDER, REQ_RENDER_INTERVAL_MILLS);
+        int[] size = mCamera.fitSurfaceSize(width, height);
+        if (size != null) {
+            mOffScreenCameraRenderer.onCameraChanged(mCameraId, size[0], size[1]);
+            if (mOnCameraSizeChangedListener != null) {
+                mOnCameraSizeChangedListener.onCameraSizeChanged(width, height, size[0], size[1]);
+            }
+        }
     }
 
     @Override
     public void onFrameAvailable() {
-        requestRender();
+//        requestRender();//脏模式渲染才需要主动刷新
     }
 
     @Override
@@ -152,8 +166,6 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     @Override
     public void onEGLContextToDestroy() {
         LogUtils.d(TAG, "onEGLContextToDestroy");
-        mUIHandler.removeCallbacksAndMessages(null);
-        mUIHandler = null;
         if (mCamera != null) {
             mCamera.stopPreview();
             mCamera = null;

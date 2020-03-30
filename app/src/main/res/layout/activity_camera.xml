@@ -1,11 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <com.wtz.libvideomaker.camera.WeCameraView
-        android:id="@+id/we_camera"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:gravity="center"
+            android:text="测试动态消失改变surface大小后的自适应能力，\n5秒后自动关闭此View" />
+
+        <com.wtz.libvideomaker.camera.WeCameraView
+            android:id="@+id/we_camera"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_preview_size"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="预览宽高和比例"
+        android:textColor="#ff0000" />
+
+    <Button
+        android:id="@+id/btn_change_camera"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginLeft="5dp"
+        android:layout_marginBottom="5dp"
+        android:background="#80ffffff"
+        android:text="切换摄像头方向" />
 </FrameLayout>
