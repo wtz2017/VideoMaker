@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -20,7 +21,7 @@ import com.wtz.videomaker.utils.PermissionHandler;
 
 
 public class CameraActivity extends AppCompatActivity implements PermissionHandler.PermissionHandleListener,
-        WeCameraView.OnCameraSizeChangedListener, View.OnClickListener {
+        WeCameraView.OnCameraSizeChangedListener, View.OnClickListener, RadioGroup.OnCheckedChangeListener {
     private static final String TAG = CameraActivity.class.getSimpleName();
 
     private PermissionHandler mPermissionHandler;
@@ -48,6 +49,8 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
         mCameraSizeView = findViewById(R.id.tv_preview_size);
         mChangeCameraButton = findViewById(R.id.btn_change_camera);
         mChangeCameraButton.setOnClickListener(this);
+
+        ((RadioGroup) findViewById(R.id.rg_render_type)).setOnCheckedChangeListener(this);
 
         mUIHandler.postDelayed(new Runnable() {
             @Override
@@ -112,6 +115,24 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
         } else {
             isBackCamera = true;
             mWeCameraView.startBackCamera();
+        }
+    }
+
+    @Override
+    public void onCheckedChanged(RadioGroup group, int checkedId) {
+        LogUtils.d(TAG, "onCheckedChanged " + checkedId);
+        switch (checkedId) {
+            case R.id.rb_normal:
+                mWeCameraView.setPictureRenderType(WeCameraView.PictureRenderType.NORMAL);
+                break;
+
+            case R.id.rb_gray:
+                mWeCameraView.setPictureRenderType(WeCameraView.PictureRenderType.GRAY);
+                break;
+
+            case R.id.rb_color_reverse:
+                mWeCameraView.setPictureRenderType(WeCameraView.PictureRenderType.COLOR_REVERSE);
+                break;
         }
     }
 

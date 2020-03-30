@@ -7,9 +7,11 @@ import android.hardware.Camera;
 import android.util.AttributeSet;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.renderer.GrayScreenRenderer;
 import com.wtz.libvideomaker.renderer.NormalScreenRenderer;
 import com.wtz.libvideomaker.renderer.OffScreenCameraRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
+import com.wtz.libvideomaker.renderer.ReverseScreenRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 
 public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer,
@@ -24,7 +26,16 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     private int mCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
 
     private OffScreenCameraRenderer mOffScreenCameraRenderer;
-    private OnScreenRenderer mOnScreenRenderer;
+    private OnScreenRenderer mNormalScreenRenderer;
+    private OnScreenRenderer mGrayScreenRenderer;
+    private OnScreenRenderer mReverseScreenRenderer;
+    private OnScreenRenderer mDrawScreenRenderer;
+
+    public enum PictureRenderType {
+        NORMAL, GRAY, COLOR_REVERSE
+    }
+
+    private PictureRenderType mPictureRenderType;
 
     public interface OnCameraSizeChangedListener {
         void onCameraSizeChanged(int surfaceWidth, int surfaceHeight,
@@ -54,8 +65,32 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         mOffScreenCameraRenderer = new OffScreenCameraRenderer(context, this);
         mOffScreenCameraRenderer.setSharedTextureChangedListener(this);
 
-        mOnScreenRenderer = new NormalScreenRenderer(context);
-        mOnScreenRenderer.setExternalTextureId(mOffScreenCameraRenderer.getSharedTextureId());
+        mNormalScreenRenderer = new NormalScreenRenderer(context);
+        mGrayScreenRenderer = new GrayScreenRenderer(context);
+        mReverseScreenRenderer = new ReverseScreenRenderer(context);
+        mDrawScreenRenderer = mNormalScreenRenderer;
+
+        int textureId = mOffScreenCameraRenderer.getSharedTextureId();
+        mNormalScreenRenderer.setExternalTextureId(textureId);
+        mGrayScreenRenderer.setExternalTextureId(textureId);
+        mReverseScreenRenderer.setExternalTextureId(textureId);
+    }
+
+    public void setPictureRenderType(PictureRenderType type) {
+        this.mPictureRenderType = type;
+        switch (type) {
+            case NORMAL:
+                mDrawScreenRenderer = mNormalScreenRenderer;
+                break;
+
+            case GRAY:
+                mDrawScreenRenderer = mGrayScreenRenderer;
+                break;
+
+            case COLOR_REVERSE:
+                mDrawScreenRenderer = mReverseScreenRenderer;
+                break;
+        }
     }
 
     @Override
@@ -65,7 +100,9 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
 
     @Override
     public void onSharedTextureChanged(int textureID) {
-        mOnScreenRenderer.setExternalTextureId(textureID);
+        mNormalScreenRenderer.setExternalTextureId(textureID);
+        mGrayScreenRenderer.setExternalTextureId(textureID);
+        mReverseScreenRenderer.setExternalTextureId(textureID);
     }
 
     @Override
@@ -77,7 +114,9 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     public void onEGLContextCreated() {
         LogUtils.d(TAG, "onEGLContextCreated");
         mOffScreenCameraRenderer.onEGLContextCreated();
-        mOnScreenRenderer.onEGLContextCreated();
+        mNormalScreenRenderer.onEGLContextCreated();
+        mGrayScreenRenderer.onEGLContextCreated();
+        mReverseScreenRenderer.onEGLContextCreated();
     }
 
     @Override
@@ -141,7 +180,9 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     public void onSurfaceChanged(int width, int height) {
         LogUtils.d(TAG, "onSurfaceChanged " + width + "x" + height);
         mOffScreenCameraRenderer.onSurfaceChanged(width, height);
-        mOnScreenRenderer.onSurfaceChanged(width, height);
+        mNormalScreenRenderer.onSurfaceChanged(width, height);
+        mGrayScreenRenderer.onSurfaceChanged(width, height);
+        mReverseScreenRenderer.onSurfaceChanged(width, height);
 
         int[] size = mCamera.fitSurfaceSize(width, height);
         if (size != null) {
@@ -160,7 +201,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     @Override
     public void onDrawFrame() {
         mOffScreenCameraRenderer.onDrawFrame();
-        mOnScreenRenderer.onDrawFrame();
+        mDrawScreenRenderer.onDrawFrame();
     }
 
     @Override
@@ -171,7 +212,9 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
             mCamera = null;
         }
         mOffScreenCameraRenderer.onEGLContextToDestroy();
-        mOnScreenRenderer.onEGLContextToDestroy();
+        mNormalScreenRenderer.onEGLContextToDestroy();
+        mGrayScreenRenderer.onEGLContextToDestroy();
+        mReverseScreenRenderer.onEGLContextToDestroy();
     }
 
 }

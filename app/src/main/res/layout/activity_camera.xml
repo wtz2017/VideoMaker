@@ -31,15 +31,57 @@
         android:text="预览宽高和比例"
         android:textColor="#ff0000" />
 
-    <Button
-        android:id="@+id/btn_change_camera"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
         android:layout_gravity="bottom"
         android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
         android:layout_marginBottom="5dp"
-        android:background="#80ffffff"
-        android:text="切换摄像头方向" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_change_camera"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginRight="5dp"
+            android:background="#80ffffff"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:text="切换摄像头" />
+
+        <RadioGroup
+            android:id="@+id/rg_render_type"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#80ffffff"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/rb_normal"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:checked="true"
+                android:text="正常" />
+
+            <RadioButton
+                android:id="@+id/rb_gray"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="灰度" />
+
+            <RadioButton
+                android:id="@+id/rb_color_reverse"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="反色" />
+
+        </RadioGroup>
+
+    </LinearLayout>
+
 </FrameLayout>
