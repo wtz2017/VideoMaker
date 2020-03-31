@@ -1,39 +1,48 @@
 package com.wtz.libvideomaker.camera;
 
+import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 
+import com.wtz.libvideomaker.utils.LogUtils;
+
 import java.util.List;
 
 // TODO 使用 camera2
-public class WeCamera {
+public class WeCamera implements AcceleFocusListener.OnFocusListener {
+    private static final String TAG = WeCamera.class.getSimpleName();
 
+    private int mCameraId;
     private Camera mCamera;// 要使用 android.hardware 包下的
     private SurfaceTexture mSurfaceTexture;
+    private AcceleFocusListener mAccelerationListener;
 
     private static final int DEFAULT_SUFACE_WIDTH = 1280;
     private static final int DEFAULT_SUFACE_HEIGHT = 720;
     private int[] mPreviewSize = new int[2];
 
-    public WeCamera(SurfaceTexture surfaceTexture) {
+    public WeCamera(SurfaceTexture surfaceTexture, Context context) {
         this.mSurfaceTexture = surfaceTexture;
+        mAccelerationListener = AcceleFocusListener.getInstance(context);
+        mAccelerationListener.setCameraFocusListener(this);
     }
 
     public int[] startPreview(int cameraId, int surfaceWidth, int surfaceHeight) {
         try {
+            mCameraId = cameraId;
             mCamera = Camera.open(cameraId);
             mCamera.setPreviewTexture(mSurfaceTexture);
 
             Camera.Parameters parameters = mCamera.getParameters();
-            // 是否开启闪光灯，直播不需要开启
-            parameters.setFlashMode("off");
-            // 使用YUV格式NV21
-            parameters.setPreviewFormat(ImageFormat.NV21);
+            parameters.setFlashMode("off");// 是否开启闪光灯，直播不需要开启
+            parameters.setPreviewFormat(ImageFormat.NV21);// 使用YUV格式NV21
             setPicAndPreviewSize(parameters, surfaceWidth, surfaceHeight);
             mCamera.setParameters(parameters);
 
             mCamera.startPreview();
+
+            startAccelerationFocus();
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -43,6 +52,7 @@ public class WeCamera {
     }
 
     public int[] fitSurfaceSize(int surfaceWidth, int surfaceHeight) {
+        stopAccelerationFocus();
         try {
             mCamera.stopPreview();// 测试发现小米4不用先停止预览，但华为某款手机就需要重新预览才有效
 
@@ -51,6 +61,8 @@ public class WeCamera {
             mCamera.setParameters(parameters);
 
             mCamera.startPreview();
+
+            startAccelerationFocus();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -113,9 +125,60 @@ public class WeCamera {
         return fitSize;
     }
 
+    private void startAccelerationFocus() {
+        // 只针对后置摄像头设置自动对焦模式，前置摄像头是 fixed，无法自动对焦
+        if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+            mAccelerationListener.start();
+            onFocus();
+        }
+    }
+
+    @Override
+    public void onFocus() {
+        if (mCamera != null && !mAccelerationListener.isFocusLocked()) {
+            mAccelerationListener.lockFocus();
+            if (!startFocus()) {
+                LogUtils.e(TAG, "startFocus failed");
+                mAccelerationListener.unlockFocus();
+            }
+        }
+    }
+
+    private boolean startFocus() {
+        try {
+            mCamera.cancelAutoFocus(); // 先要取消掉进程中所有的聚焦功能
+            Camera.Parameters parameters = mCamera.getParameters();
+            // setMeteringRect(x, y);// 设置感光区域
+            parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+            mCamera.setParameters(parameters);
+            mCamera.autoFocus(mAutoFocusCallback);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return true;
+    }
+
+    private Camera.AutoFocusCallback mAutoFocusCallback = new Camera.AutoFocusCallback() {
+        @Override
+        public void onAutoFocus(boolean success, Camera camera) {
+            if (!success) {
+                LogUtils.w(TAG, "onAutoFocus failed!");
+            }
+            mAccelerationListener.unlockFocus();
+        }
+    };
+
+    private void stopAccelerationFocus() {
+        mAccelerationListener.stop();
+    }
+
     public void stopPreview() {
+        stopAccelerationFocus();
         if (mCamera != null) {
             try {
+                mCamera.cancelAutoFocus(); // 取消掉进程中所有的聚焦功能
                 mCamera.stopPreview();
             } catch (Exception e) {
                 e.printStackTrace();

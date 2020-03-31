@@ -264,7 +264,7 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
     }
 
     public void onCameraChanged(int cameraId, int previewWidth, int previewHeight) {
-        LogUtils.w(TAG, "onCameraChanged id=" + mCameraId + "; preview size=" + previewWidth + "x" + previewHeight);
+        LogUtils.w(TAG, "onCameraChanged id=" + cameraId + "; preview size=" + previewWidth + "x" + previewHeight);
         saveCameraParams(cameraId, previewWidth, previewHeight);
         changePositionMatrix();
     }

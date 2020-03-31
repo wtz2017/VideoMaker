@@ -122,7 +122,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     @Override
     public void onSurfaceTextureCreated(SurfaceTexture surfaceTexture) {
         LogUtils.d(TAG, "onEGLContextCreated");
-        mCamera = new WeCamera(surfaceTexture);
+        mCamera = new WeCamera(surfaceTexture, getContext());
         int[] size = mCamera.startPreview(mCameraId, mCameraViewWidth, mCameraViewHeight);
         if (size != null) {
             mOffScreenCameraRenderer.initCameraParams(mCameraId, size[0], size[1]);
