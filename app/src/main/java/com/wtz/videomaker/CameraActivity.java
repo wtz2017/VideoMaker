@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
@@ -19,6 +20,8 @@ import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.videomaker.utils.PermissionChecker;
 import com.wtz.videomaker.utils.PermissionHandler;
 
+import java.io.File;
+
 
 public class CameraActivity extends AppCompatActivity implements PermissionHandler.PermissionHandleListener,
         WeCameraView.OnCameraSizeChangedListener, View.OnClickListener, RadioGroup.OnCheckedChangeListener {
@@ -31,6 +34,7 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
     private TextView mTitleView;
     private TextView mCameraSizeView;
     private Button mChangeCameraButton;
+    private Button mSaveImageButton;
 
     private boolean isBackCamera = true;
 
@@ -44,11 +48,16 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
 
         mWeCameraView = findViewById(R.id.we_camera);
         mWeCameraView.setOnCameraSizeChangedListener(this);
+        File savePath = new File(Environment.getExternalStorageDirectory(), "WePhotos");
+        mWeCameraView.setSaveImageDir(savePath.getAbsolutePath());
 
         mTitleView = findViewById(R.id.tv_title);
         mCameraSizeView = findViewById(R.id.tv_preview_size);
+
         mChangeCameraButton = findViewById(R.id.btn_change_camera);
         mChangeCameraButton.setOnClickListener(this);
+        mSaveImageButton = findViewById(R.id.btn_save_image);
+        mSaveImageButton.setOnClickListener(this);
 
         ((RadioGroup) findViewById(R.id.rg_render_type)).setOnCheckedChangeListener(this);
 
@@ -61,6 +70,7 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
 
         mPermissionHandler = new PermissionHandler(this, this);
         mPermissionHandler.handleCommonPermission(Manifest.permission.CAMERA);
+        mPermissionHandler.handleCommonPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
     }
 
     @Override
@@ -79,18 +89,23 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
 
     @Override
     public void onPermissionResult(String permission, PermissionChecker.PermissionState state) {
-        if (state == PermissionChecker.PermissionState.ALLOWED) {
-            mWeCameraView.startBackCamera();
-            isBackCamera = true;
-        } else if (state == PermissionChecker.PermissionState.UNKNOWN) {
-            LogUtils.e(TAG, "onPermissionResult " + permission + " state is UNKNOWN!");
-            mWeCameraView.startBackCamera();
-            isBackCamera = true;
-        } else if (state == PermissionChecker.PermissionState.USER_NOT_GRANTED) {
-            LogUtils.e(TAG, "onPermissionResult " + permission + " state is USER_NOT_GRANTED!");
-            finish();
-        } else {
-            LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
+        LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
+        if (Manifest.permission.CAMERA.equals(permission)) {
+            if (state == PermissionChecker.PermissionState.ALLOWED) {
+                mWeCameraView.startBackCamera();
+                isBackCamera = true;
+            } else if (state == PermissionChecker.PermissionState.UNKNOWN) {
+                LogUtils.e(TAG, "onPermissionResult " + permission + " state is UNKNOWN!");
+                mWeCameraView.startBackCamera();
+                isBackCamera = true;
+            } else if (state == PermissionChecker.PermissionState.USER_NOT_GRANTED) {
+                LogUtils.e(TAG, "onPermissionResult " + permission + " state is USER_NOT_GRANTED!");
+                finish();
+            } else {
+                LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
+            }
+        } else if (Manifest.permission.CAMERA.equals(permission)) {
+            // do something
         }
     }
 
@@ -109,12 +124,31 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
 
     @Override
     public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.btn_change_camera:
+                changeCamera();
+                break;
+
+            case R.id.btn_save_image:
+                saveImage();
+                break;
+
+        }
+    }
+
+    private void changeCamera() {
         if (isBackCamera) {
             isBackCamera = false;
             mWeCameraView.startFrontCamera();
         } else {
             isBackCamera = true;
             mWeCameraView.startBackCamera();
+        }
+    }
+
+    private void saveImage() {
+        if (mWeCameraView != null) {
+            mWeCameraView.takePhoto();
         }
     }
 

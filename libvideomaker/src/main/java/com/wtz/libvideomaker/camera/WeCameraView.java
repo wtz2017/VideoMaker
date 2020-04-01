@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
@@ -14,6 +15,10 @@ import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.ReverseScreenRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer,
         OffScreenCameraRenderer.OnSharedTextureChangedListener,
         OffScreenCameraRenderer.SurfaceTextureListener {
@@ -21,6 +26,12 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
 
     private int mCameraViewWidth;
     private int mCameraViewHeight;
+
+    boolean isTakingPhoto;
+    private String mSaveImageDir;
+    private static final String PHOTO_PREFIX = "WePhoto_";
+    private static final String PHOTO_SUFFIX = ".jpg";
+    private final SimpleDateFormat mSimpleDateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
 
     private WeCamera mCamera;
     private int mCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
@@ -34,8 +45,6 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     public enum PictureRenderType {
         NORMAL, GRAY, COLOR_REVERSE
     }
-
-    private PictureRenderType mPictureRenderType;
 
     public interface OnCameraSizeChangedListener {
         void onCameraSizeChanged(int surfaceWidth, int surfaceHeight,
@@ -77,7 +86,6 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     }
 
     public void setPictureRenderType(PictureRenderType type) {
-        this.mPictureRenderType = type;
         switch (type) {
             case NORMAL:
                 mDrawScreenRenderer = mNormalScreenRenderer;
@@ -91,6 +99,11 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
                 mDrawScreenRenderer = mReverseScreenRenderer;
                 break;
         }
+    }
+
+    public void setSaveImageDir(String imageDir) {
+        LogUtils.d(TAG, "setSaveImageDir: " + imageDir);
+        this.mSaveImageDir = imageDir;
     }
 
     @Override
@@ -198,10 +211,26 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
 //        requestRender();//脏模式渲染才需要主动刷新
     }
 
+    public void takePhoto() {
+        if (mCamera == null || TextUtils.isEmpty(mSaveImageDir)) {
+            return;
+        }
+        isTakingPhoto = true;
+    }
+
     @Override
     public void onDrawFrame() {
         mOffScreenCameraRenderer.onDrawFrame();
         mDrawScreenRenderer.onDrawFrame();
+        if (isTakingPhoto) {
+            isTakingPhoto = false;
+            mDrawScreenRenderer.takePhoto(getPhotoPathName());
+        }
+    }
+
+    private String getPhotoPathName() {
+        String time = mSimpleDateFormat.format(new Date());
+        return new File(mSaveImageDir, PHOTO_PREFIX + time + PHOTO_SUFFIX).getAbsolutePath();
     }
 
     @Override

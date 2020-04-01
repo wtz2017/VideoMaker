@@ -1,12 +1,17 @@
 package com.wtz.libvideomaker.renderer;
 
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.opengl.GLES20;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.utils.GLBitmapUtils;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -15,6 +20,9 @@ public abstract class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     private Context mContext;
     private String mTag;
+
+    private int mSurfaceWidth;
+    private int mSurfaceHeight;
 
     private int mVertexShaderHandle;
     private int mFragmentShaderHandle;
@@ -176,6 +184,8 @@ public abstract class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
     @Override
     public void onSurfaceChanged(int width, int height) {
         LogUtils.d(mTag, "onSurfaceChanged " + width + "x" + height);
+        this.mSurfaceWidth = width;
+        this.mSurfaceHeight = height;
         GLES20.glViewport(0, 0, width, height);
     }
 
@@ -221,6 +231,16 @@ public abstract class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
         // 解绑 Texture
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+    }
+
+    public void takePhoto(String pathName) {
+        Bitmap bitmap = GLBitmapUtils.savePixels(0, 0, mSurfaceWidth, mSurfaceHeight);
+        GLBitmapUtils.saveBitmap(bitmap, pathName);
+
+        // 注意：以 Environment.getExternalStorageDirectory() 为开头的路径才会通知图库扫描有效
+        Uri contentUri = Uri.fromFile(new File(pathName));
+        Intent i = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, contentUri);
+        mContext.sendBroadcast(i);
     }
 
     @Override
