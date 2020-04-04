@@ -1,4 +1,4 @@
-package com.wtz.libvideomaker.renderer;
+package com.wtz.libvideomaker.renderer.origins;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -16,7 +16,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public abstract class OffScreenImgRenderer implements WeGLSurfaceView.WeRenderer {
+public abstract class ImgRenderer implements WeGLSurfaceView.WeRenderer {
 
     private Context mContext;
     private String mTag;
@@ -89,7 +89,7 @@ public abstract class OffScreenImgRenderer implements WeGLSurfaceView.WeRenderer
 
     private OnSharedTextureChangedListener mSharedTextureChangedListener;
 
-    public OffScreenImgRenderer(Context mContext, String tag) {
+    public ImgRenderer(Context mContext, String tag) {
         this.mContext = mContext;
         this.mTag = tag;
     }

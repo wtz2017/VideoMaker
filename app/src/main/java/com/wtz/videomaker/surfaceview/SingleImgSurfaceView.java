@@ -4,21 +4,20 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
 
-import com.wtz.libvideomaker.renderer.OnScreenRenderer;
-import com.wtz.libvideomaker.renderer.NormalScreenRenderer;
-import com.wtz.libvideomaker.renderer.OffScreenImgRenderer;
-import com.wtz.libvideomaker.renderer.SingleImgOffRenderer;
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.renderer.OnScreenRenderer;
+import com.wtz.libvideomaker.renderer.origins.ImgRenderer;
+import com.wtz.libvideomaker.renderer.origins.SingleImgRenderer;
 import com.wtz.videomaker.R;
 
 import javax.microedition.khronos.egl.EGLContext;
 
-public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenImgRenderer.OnSharedTextureChangedListener {
+public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, ImgRenderer.OnSharedTextureChangedListener {
     private static final String TAG = SingleImgSurfaceView.class.getSimpleName();
 
-    private OffScreenImgRenderer mOffScreenImgRenderer;
+    private ImgRenderer mImgOffScreenRenderer;
     private OnScreenRenderer mOnScreenRenderer;
-    private OffScreenImgRenderer.OnSharedTextureChangedListener mOnSharedTextureChangedListener;
+    private ImgRenderer.OnSharedTextureChangedListener mOnSharedTextureChangedListener;
 
     public interface OnEGLContextCreatedListener {
         void onEGLContextCreated(EGLContext eglContext);
@@ -51,11 +50,11 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mOffScreenImgRenderer = new SingleImgOffRenderer(context, R.drawable.carry_up);
-        mOffScreenImgRenderer.setSharedTextureChangedListener(this);
+        mImgOffScreenRenderer = new SingleImgRenderer(context, R.drawable.carry_up);
+        mImgOffScreenRenderer.setSharedTextureChangedListener(this);
 
-        mOnScreenRenderer = new NormalScreenRenderer(context);
-        mOnScreenRenderer.setExternalTextureId(mOffScreenImgRenderer.getSharedTextureId());
+        mOnScreenRenderer = new OnScreenRenderer(context, TAG);
+        mOnScreenRenderer.setExternalTextureId(mImgOffScreenRenderer.getSharedTextureId());
     }
 
     @Override
@@ -64,10 +63,10 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
     }
 
     public int getSharedTextureId() {
-        return mOffScreenImgRenderer.getSharedTextureId();
+        return mImgOffScreenRenderer.getSharedTextureId();
     }
 
-    public void setSharedTextureChangedListener(OffScreenImgRenderer.OnSharedTextureChangedListener listener) {
+    public void setSharedTextureChangedListener(ImgRenderer.OnSharedTextureChangedListener listener) {
         this.mOnSharedTextureChangedListener = listener;
     }
 
@@ -87,7 +86,7 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
     @Override
     public void onEGLContextCreated() {
         Log.d(TAG, "onEGLContextCreated");
-        mOffScreenImgRenderer.onEGLContextCreated();
+        mImgOffScreenRenderer.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
         if (mOnEGLContextCreatedListener != null) {
             mOnEGLContextCreatedListener.onEGLContextCreated(getSharedEGLContext());
@@ -97,14 +96,14 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
     @Override
     public void onSurfaceChanged(int width, int height) {
         Log.d(TAG, "onSurfaceChanged " + width + "x" + height);
-        mOffScreenImgRenderer.onSurfaceChanged(width, height);
+        mImgOffScreenRenderer.onSurfaceChanged(width, height);
         mOnScreenRenderer.onSurfaceChanged(width, height);
     }
 
     @Override
     public void onDrawFrame() {
         Log.d(TAG, "onDrawFrame");
-        mOffScreenImgRenderer.onDrawFrame();
+        mImgOffScreenRenderer.onDrawFrame();
         mOnScreenRenderer.onDrawFrame();
     }
 
@@ -114,7 +113,7 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLSurface
         if (mOnEGLContextToDestroyListener != null) {
             mOnEGLContextToDestroyListener.onEGLContextToDestroy();
         }
-        mOffScreenImgRenderer.onEGLContextToDestroy();
+        mImgOffScreenRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
     }
 

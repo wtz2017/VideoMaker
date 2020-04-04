@@ -3,8 +3,8 @@ package com.wtz.videomaker.surfaceview;
 import android.content.Context;
 import android.util.AttributeSet;
 
-import com.wtz.libvideomaker.renderer.OnScreenRenderer;
-import com.wtz.libvideomaker.renderer.ReverseScreenRenderer;
+import com.wtz.libvideomaker.renderer.filters.FilterRenderer;
+import com.wtz.libvideomaker.renderer.filters.ReverseFilterRenderer;
 
 public class ReverseSurfaceView extends FilterSurfaceView{
     private static final String TAG = ReverseSurfaceView.class.getSimpleName();
@@ -27,8 +27,8 @@ public class ReverseSurfaceView extends FilterSurfaceView{
     }
 
     @Override
-    protected OnScreenRenderer createRenderer(Context context) {
-        return new ReverseScreenRenderer(context);
+    protected FilterRenderer createFilterRenderer(Context context) {
+        return new ReverseFilterRenderer(context);
     }
 
 }

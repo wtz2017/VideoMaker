@@ -5,16 +5,15 @@ import android.util.AttributeSet;
 import android.util.Log;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
-import com.wtz.libvideomaker.renderer.MultiImgOffRenderer;
-import com.wtz.libvideomaker.renderer.NormalScreenRenderer;
-import com.wtz.libvideomaker.renderer.OffScreenImgRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
+import com.wtz.libvideomaker.renderer.origins.ImgRenderer;
+import com.wtz.libvideomaker.renderer.origins.MultiImgRenderer;
 import com.wtz.videomaker.R;
 
-public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, OffScreenImgRenderer.OnSharedTextureChangedListener {
+public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, ImgRenderer.OnSharedTextureChangedListener {
     private static final String TAG = MultiImgSurfaceView.class.getSimpleName();
 
-    private OffScreenImgRenderer mOffScreenImgRenderer;
+    private ImgRenderer mImgOffScreenRenderer;
     private OnScreenRenderer mOnScreenRenderer;
 
     public MultiImgSurfaceView(Context context) {
@@ -29,14 +28,14 @@ public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceV
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mOffScreenImgRenderer = new MultiImgOffRenderer(context, new int[] {
+        mImgOffScreenRenderer = new MultiImgRenderer(context, new int[] {
                 R.drawable.tree, R.drawable.sunflower, R.drawable.lotus,
                 R.drawable.carry_up, R.drawable.happy
         });
-        mOffScreenImgRenderer.setSharedTextureChangedListener(this);
+        mImgOffScreenRenderer.setSharedTextureChangedListener(this);
 
-        mOnScreenRenderer = new NormalScreenRenderer(context);
-        mOnScreenRenderer.setExternalTextureId(mOffScreenImgRenderer.getSharedTextureId());
+        mOnScreenRenderer = new OnScreenRenderer(context, TAG);
+        mOnScreenRenderer.setExternalTextureId(mImgOffScreenRenderer.getSharedTextureId());
     }
 
     @Override
@@ -57,28 +56,28 @@ public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceV
     @Override
     public void onEGLContextCreated() {
         Log.d(TAG, "onEGLContextCreated");
-        mOffScreenImgRenderer.onEGLContextCreated();
+        mImgOffScreenRenderer.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
     }
 
     @Override
     public void onSurfaceChanged(int width, int height) {
         Log.d(TAG, "onSurfaceChanged " + width + "x" + height);
-        mOffScreenImgRenderer.onSurfaceChanged(width, height);
+        mImgOffScreenRenderer.onSurfaceChanged(width, height);
         mOnScreenRenderer.onSurfaceChanged(width, height);
     }
 
     @Override
     public void onDrawFrame() {
         Log.d(TAG, "onDrawFrame");
-        mOffScreenImgRenderer.onDrawFrame();
+        mImgOffScreenRenderer.onDrawFrame();
         mOnScreenRenderer.onDrawFrame();
     }
 
     @Override
     public void onEGLContextToDestroy() {
         Log.d(TAG, "onEGLContextToDestroy");
-        mOffScreenImgRenderer.onEGLContextToDestroy();
+        mImgOffScreenRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
     }
 

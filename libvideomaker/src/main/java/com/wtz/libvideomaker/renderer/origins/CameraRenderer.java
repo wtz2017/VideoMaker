@@ -1,4 +1,4 @@
-package com.wtz.libvideomaker.renderer;
+package com.wtz.libvideomaker.renderer.origins;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -20,8 +20,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, SurfaceTexture.OnFrameAvailableListener {
-    private static final String TAG = OffScreenCameraRenderer.class.getSimpleName();
+public class CameraRenderer implements WeGLSurfaceView.WeRenderer, SurfaceTexture.OnFrameAvailableListener {
+    private static final String TAG = CameraRenderer.class.getSimpleName();
 
     private Context mContext;
 
@@ -116,7 +116,7 @@ public class OffScreenCameraRenderer implements WeGLSurfaceView.WeRenderer, Surf
     private OnSharedTextureChangedListener mSharedTextureChangedListener;
     private SurfaceTextureListener mSurfaceTextureListener;
 
-    public OffScreenCameraRenderer(Context mContext, SurfaceTextureListener listener) {
+    public CameraRenderer(Context mContext, SurfaceTextureListener listener) {
         this.mContext = mContext;
         this.mSurfaceTextureListener = listener;
     }

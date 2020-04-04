@@ -3,8 +3,8 @@ package com.wtz.videomaker.surfaceview;
 import android.content.Context;
 import android.util.AttributeSet;
 
-import com.wtz.libvideomaker.renderer.LuminanceScreenRenderer;
-import com.wtz.libvideomaker.renderer.OnScreenRenderer;
+import com.wtz.libvideomaker.renderer.filters.FilterRenderer;
+import com.wtz.libvideomaker.renderer.filters.LuminanceFilterRenderer;
 
 public class LuminanceSurfaceView extends FilterSurfaceView{
     private static final String TAG = LuminanceSurfaceView.class.getSimpleName();
@@ -27,8 +27,8 @@ public class LuminanceSurfaceView extends FilterSurfaceView{
     }
 
     @Override
-    protected OnScreenRenderer createRenderer(Context context) {
-        return new LuminanceScreenRenderer(context);
+    protected FilterRenderer createFilterRenderer(Context context) {
+        return new LuminanceFilterRenderer(context);
     }
 
 }

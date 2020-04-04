@@ -1,31 +1,21 @@
-package com.wtz.libvideomaker.renderer;
+package com.wtz.libvideomaker.renderer.filters;
 
 import android.content.Context;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.net.Uri;
 import android.opengl.GLES20;
 
-import com.wtz.libvideomaker.R;
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
-import com.wtz.libvideomaker.utils.GLBitmapUtils;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
+import com.wtz.libvideomaker.utils.TextureUtils;
 
-import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
-    
-    private static final String TAG = OnScreenRenderer.class.getSimpleName();
+public abstract class FilterRenderer implements WeGLSurfaceView.WeRenderer {
 
     private Context mContext;
     private String mTag;
-
-    private int mSurfaceWidth;
-    private int mSurfaceHeight;
 
     private int mVertexShaderHandle;
     private int mFragmentShaderHandle;
@@ -43,6 +33,11 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
     private int mVertexCoordBytes;
     private int mTextureCoordBytes;
 
+    /**
+     * 使用 FBO 离屏渲染
+     */
+    private int mFBOId;
+
     /* ---------- 顶点坐标配置：start ---------- */
     // java 层顶点坐标
     private float[] mVertexCoordData;
@@ -55,6 +50,9 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
     // 用来传入顶点坐标的句柄
     private int mVertexCoordHandle;
+
+    // 用来传入顶点位置矩阵数值的句柄
+    private int mPosMatrixUnifHandle;
     /* ---------- 顶点坐标配置：end ---------- */
 
     /* ---------- 纹理坐标配置：start ---------- */
@@ -77,27 +75,50 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
     // 外部传入的纹理内容句柄
     private int mExternalTextureId;
 
-    public OnScreenRenderer(Context mContext, String tag) {
+    // 准备输出的纹理内容句柄
+    private int[] mOutputTextureIds;
+    private int[] mOldOutputTextureIds;
+
+    public interface OnFilterTextureChangedListener {
+        void onFilterTextureChanged(FilterRenderer renderer, int textureID);
+    }
+
+    private OnFilterTextureChangedListener mFilterTextureChangedListener;
+
+    public FilterRenderer(Context mContext, String tag) {
         this.mContext = mContext;
         this.mTag = tag;
     }
 
     public void setExternalTextureId(int id) {
-        LogUtils.d(TAG, mTag + " setExternalTextureId " + id);
+        LogUtils.d(mTag, "setExternalTextureId " + id);
         this.mExternalTextureId = id;
+    }
+
+    public void setFilterTextureChangedListener(OnFilterTextureChangedListener listener) {
+        this.mFilterTextureChangedListener = listener;
+    }
+
+    public int getFilterTextureId() {
+        return mOutputTextureIds != null ? mOutputTextureIds[0] : 0;
     }
 
     @Override
     public void onEGLContextCreated() {
-        LogUtils.d(TAG, mTag + " onEGLContextCreated");
+        LogUtils.d(mTag, "onEGLContextCreated");
         initShaderProgram();
         initCoordinatesData();
+        initFBO();
     }
+
+    protected abstract int getVertexShaderResId();
+
+    protected abstract int getFragmentShaderResId();
 
     private void initShaderProgram() {
         // 创建着色器程序
-        String vertexSource = ShaderUtil.readRawText(mContext, R.raw.vertex_onscreen_shader);
-        String fragmentSource = ShaderUtil.readRawText(mContext, R.raw.fragment_normal_texture2d_shader);
+        String vertexSource = ShaderUtil.readRawText(mContext, getVertexShaderResId());
+        String fragmentSource = ShaderUtil.readRawText(mContext, getFragmentShaderResId());
         int[] shaderIDs = ShaderUtil.createAndLinkProgram(vertexSource, fragmentSource);
         mVertexShaderHandle = shaderIDs[0];
         mFragmentShaderHandle = shaderIDs[1];
@@ -109,8 +130,25 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
         // 获取顶点着色器和片元着色器中的变量句柄
         mVertexCoordHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Position");
         mTextureCoordHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_TexCoordinate");
+        mPosMatrixUnifHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_PositionMatrix");
         mTextureUniformHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_Texture");
     }
+
+    /**
+     * 获取顶点坐标数组
+     */
+    protected abstract float[] getVertexCoordData();
+
+    /**
+     * 获取纹理坐标数组
+     */
+    protected abstract float[] getTextureCoordData();
+
+    /**
+     * 获取绘制时要画的顶点数量
+     */
+    protected abstract int getVertexDrawCount();
+
 
     private void initCoordinatesData() {
         /*
@@ -128,12 +166,7 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
          *                                          y
          */
         // 顶点坐标，决定图像内容最终显示的位置区域
-        mVertexCoordData = new float[]{
-                -1f, -1f,
-                1f, -1f,
-                -1f, 1f,
-                1f, 1f
-        };
+        mVertexCoordData = getVertexCoordData();
         mVertexCoordBuffer = ByteBuffer
                 .allocateDirect(mVertexCoordData.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder())
@@ -143,13 +176,7 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
         mVertexCoordData = null;
 
         // 纹理坐标（窗口、FBO），决定图像内容选取的区域部分和摆放方向
-        // 窗口纹理坐标，上下左右四角要与顶点坐标一一对应起来
-        mTextureCoordData = new float[]{
-                0f, 1f,
-                1f, 1f,
-                0f, 0f,
-                1f, 0f
-        };
+        mTextureCoordData = getTextureCoordData();
         mTextureCoordBuffer = ByteBuffer
                 .allocateDirect(mTextureCoordData.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder())
@@ -180,16 +207,85 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
     }
 
+    private void initFBO() {
+        // 创建 FBO
+        int[] fboIds = new int[1];
+        GLES20.glGenBuffers(1, fboIds, 0);
+        if (fboIds[0] == 0) {
+            throw new RuntimeException("initFBO glGenBuffers failed!");
+        }
+        mFBOId = fboIds[0];
+
+        // 初始化要绑定的纹理
+        mOutputTextureIds = new int[]{0};
+        mOldOutputTextureIds = new int[]{0};
+    }
+
     @Override
     public void onSurfaceChanged(int width, int height) {
-        LogUtils.d(TAG, mTag + " onSurfaceChanged " + width + "x" + height);
-        this.mSurfaceWidth = width;
-        this.mSurfaceHeight = height;
+        LogUtils.d(mTag, "onSurfaceChanged " + width + "x" + height);
         GLES20.glViewport(0, 0, width, height);
+        changePositionMatrix(width, height);
+        bindTextureToFBO(width, height);
+    }
+
+    /**
+     * 改变位置矩阵
+     */
+    protected abstract void changePositionMatrix(int width, int height);
+
+    /**
+     * 获取指定图像绘制时位置变换矩阵
+     */
+    protected abstract float[] getPositionMatrix();
+
+    private void bindTextureToFBO(int width, int height) {
+        mOldOutputTextureIds[0] = mOutputTextureIds[0];
+
+        /* ------ 1.创建要附加到 FBO 的纹理对象，此纹理将最终作为输出供外部使用 ------ */
+        int[] textureIds = TextureUtils.genTexture2D(1);
+        mOutputTextureIds[0] = textureIds[0];
+        LogUtils.d(mTag, "bindTextureToFBO texture current=" + textureIds[0] + ",old=" + mOldOutputTextureIds[0]);
+        // 绑定刚创建的附加纹理对象
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mOutputTextureIds[0]);
+        // 为此纹理分配内存
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width,
+                height, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+        // 解绑纹理
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
+        /* ------ 2.把纹理附加到 FBO ------ */
+        // 绑定 FBO
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
+        // 把刚创建的纹理对象附加到 FBO
+        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
+                GLES20.GL_TEXTURE_2D, mOutputTextureIds[0], 0);
+        int ret = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
+        if (ret != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+            throw new RuntimeException("Attach texture to FBO failed! FramebufferStatus:" + ret);
+        }
+        // 解绑 FBO
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+
+        /* ------ 3.释放旧的纹理 ------ */
+        if (mOldOutputTextureIds[0] != 0) {
+            GLES20.glDeleteTextures(1, mOldOutputTextureIds, 0);
+        }
+
+        if (mFilterTextureChangedListener != null) {
+            mFilterTextureChangedListener.onFilterTextureChanged(this, mOutputTextureIds[0]);
+        }
     }
 
     @Override
     public void onDrawFrame() {
+        if (mExternalTextureId == 0) {
+            return;
+        }
+
+        // 绑定到 FBO 从而离屏渲染
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
+
         // 清屏
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         GLES20.glClearColor(0f, 0f, 0f, 1.0f);
@@ -197,54 +293,51 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分
         GLES20.glUseProgram(mProgramHandle);
 
-        // 准备设置坐标，先绑定 VBO ---------->
+        // 准备设置坐标，绑定 VBO
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVBOIds[0]);
 
-        // 设置顶点坐标
+        // 启用顶点坐标传值句柄
         GLES20.glEnableVertexAttribArray(mVertexCoordHandle);
+        // 设置顶点坐标
         GLES20.glVertexAttribPointer(mVertexCoordHandle, VERTEX_COORD_DATA_SIZE,
                 GLES20.GL_FLOAT, false, 8,
                 0 /* 此处为 VBO 中的数据偏移地址 */
         );
+        // 设置位置矩阵，transpose 指明是否要转置矩阵，必须为 GL_FALSE
+        GLES20.glUniformMatrix4fv(mPosMatrixUnifHandle, 1, false,
+                getPositionMatrix(), 0);
 
-        // 设置纹理坐标
+        // 启用纹理坐标传值句柄
         GLES20.glEnableVertexAttribArray(mTextureCoordHandle);
+        // 设置纹理坐标
         GLES20.glVertexAttribPointer(mTextureCoordHandle, TEXTURE_COORD_DATA_SIZE,
                 GLES20.GL_FLOAT, false, 8,
                 mVertexCoordBytes /* 此处为 VBO 中的数据偏移地址 */
         );
 
-        // 所有坐标设置完成后，解绑 VBO <----------
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
-
         // 将纹理单元激活，并绑定到指定纹理对象数据
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mExternalTextureId);
-
         // 将纹理数据传入到片元着色器 Uniform 变量中
-        // glUniformX 用于更改 uniform 变量或数组的值，要更改的 uniform 变量的位置由 location 指定，
         GLES20.glUniform1i(mTextureUniformHandle, 0);// 诉纹理标准采样器在着色器中使用纹理单元 0
 
-        // 开始渲染图形：按照绑定的顶点坐标数组从第 1 个开始画 4 个点，一共 2 个三角形，组成一个矩形
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        // 开始渲染图形：按照绑定的顶点坐标数组从第 1 个开始画 n 个点，
+        // 3 个点组成一个三角形，4个点一共 2 个三角形，组成一个矩形
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, getVertexDrawCount());
 
         // 解绑 Texture
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
-    }
 
-    public void takePhoto(String pathName) {
-        Bitmap bitmap = GLBitmapUtils.savePixels(0, 0, mSurfaceWidth, mSurfaceHeight);
-        GLBitmapUtils.saveBitmap(bitmap, pathName);
+        // 解绑 VBO
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
-        // 注意：以 Environment.getExternalStorageDirectory() 为开头的路径才会通知图库扫描有效
-        Uri contentUri = Uri.fromFile(new File(pathName));
-        Intent i = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, contentUri);
-        mContext.sendBroadcast(i);
+        // 解绑 FBO，从而可以恢复到屏上渲染
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     }
 
     @Override
     public void onEGLContextToDestroy() {
-        LogUtils.d(TAG, mTag + " onEGLContextToDestroy");
+        LogUtils.d(mTag, "onEGLContextToDestroy");
         if (mVertexCoordBuffer != null) {
             mVertexCoordBuffer.clear();
             mVertexCoordBuffer = null;
@@ -264,6 +357,14 @@ public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
 
             GLES20.glDeleteProgram(mProgramHandle);
             mProgramHandle = 0;
+        }
+        if (mOutputTextureIds != null) {
+            GLES20.glDeleteTextures(1, mOutputTextureIds, 0);
+            mOutputTextureIds = null;
+        }
+        if (mOldOutputTextureIds != null) {
+            GLES20.glDeleteTextures(1, mOldOutputTextureIds, 0);
+            mOldOutputTextureIds = null;
         }
         if (mVBOIds != null) {
             GLES20.glDeleteBuffers(mVBOIds.length, mVBOIds, 0);

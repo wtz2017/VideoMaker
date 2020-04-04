@@ -1,19 +1,21 @@
-package com.wtz.libvideomaker.renderer;
+package com.wtz.libvideomaker.renderer.origins;
 
 import android.content.Context;
 import android.opengl.Matrix;
 
-public class MultiImgOffRenderer extends OffScreenImgRenderer {
+public class SingleImgRenderer extends ImgRenderer {
 
-    private static final String TAG = MultiImgOffRenderer.class.getSimpleName();
+    private static final String TAG = SingleImgRenderer.class.getSimpleName();
 
-    private int[] mSourceImageResIds;
+    private int mSourceImageResId;
+    private int mSourceImageWidth;
+    private int mSourceImageHeight;
 
     private float[] mPositionMatrix;// 用来保存位置变换矩阵数值的数组
 
-    public MultiImgOffRenderer(Context mContext, int[] sourceImageResIds) {
+    public SingleImgRenderer(Context mContext, int sourceImageResId) {
         super(mContext, TAG);
-        this.mSourceImageResIds = sourceImageResIds;
+        this.mSourceImageResId = sourceImageResId;
     }
 
     @Override
@@ -41,65 +43,61 @@ public class MultiImgOffRenderer extends OffScreenImgRenderer {
          *                                          y
          */
         return new float[]{
-                // 视口左上角 1/4 区域
-                -1f, 0f,
-                0f, 0f,
-                -1f, 1f,
-                0f, 1f,
-
-                // 视口右上角 1/4 区域
-                0f, 0f,
-                1f, 0f,
-                0f, 1f,
-                1f, 1f,
-
-                // 视口左下角 1/4 区域
+                // 整个视口区域
                 -1f, -1f,
-                0f, -1f,
-                -1f, 0f,
-                0f, 0f,
-
-                // 视口右下角 1/4 区域
-                0f, -1f,
                 1f, -1f,
-                0f, 0f,
-                1f, 0f,
-
-                // 整个视口中心 1/16 区域
-                -0.25f, -0.25f,
-                0.25f, -0.25f,
-                -0.25f, 0.25f,
-                0.25f, 0.25f,
+                -1f, 1f,
+                1f, 1f,
         };
     }
 
     @Override
     protected int getVertexDrawOffsetBytes(int sourceImgIndex) {
-        // 最多支持5个索引，此后循环
-        int index = sourceImgIndex % 5;
-        // 每一组为一个矩形，4个点，8个浮点数值，每个浮点数值4字节
-        return index * 8 * 4;
+        return 0;
     }
 
     @Override
     protected int getVertexDrawCount(int sourceImgIndex) {
-        // 每组4个点一共2个三角形，组成一个矩形
+        // 4个点一共 2 个三角形，组成一个矩形
         return 4;
     }
 
     @Override
     protected int[] getSourceImageResIds() {
-        return mSourceImageResIds;
+        return new int[]{mSourceImageResId};
     }
 
     @Override
     protected void onSourceImageLoaded(int[][] mSourceTextureInfos) {
+        mSourceImageWidth = mSourceTextureInfos[0][1];
+        mSourceImageHeight = mSourceTextureInfos[0][2];
     }
 
     @Override
     protected void changePositionMatrix(int width, int height) {
         // 初始化单位矩阵
         Matrix.setIdentityM(mPositionMatrix, 0);
+
+        // 设置正交投影
+        float imageRatio = mSourceImageWidth * 1.0f / mSourceImageHeight;
+        float containerRatio = width * 1.0f / height;
+        if (containerRatio >= imageRatio) {
+            // 容器比图像更宽一些，横向居中展示
+            float imageNormalWidth = 1 - (-1);
+            float containerNormalWidth = width / (height * imageRatio) * imageNormalWidth;
+            Matrix.orthoM(mPositionMatrix, 0,
+                    -containerNormalWidth / 2, containerNormalWidth / 2,
+                    -1f, 1f,
+                    -1f, 1f);
+        } else {
+            // 容器比图像更高一些，纵向居中展示
+            float imageNormalHeight = 1 - (-1);
+            float containerNormalHeight = height / (width / imageRatio) * imageNormalHeight;
+            Matrix.orthoM(mPositionMatrix, 0,
+                    -1, 1,
+                    -containerNormalHeight / 2, containerNormalHeight / 2,
+                    -1f, 1f);
+        }
 
         // 沿 x 轴旋转 180 度
         // rotateM(float[] m, int mOffset, float a, float x, float y, float z)

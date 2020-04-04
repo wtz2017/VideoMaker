@@ -6,9 +6,12 @@ import android.util.Log;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
+import com.wtz.libvideomaker.renderer.filters.FilterRenderer;
 
-public abstract class FilterSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer {
+public abstract class FilterSurfaceView extends WeGLSurfaceView
+        implements WeGLSurfaceView.WeRenderer, FilterRenderer.OnFilterTextureChangedListener {
 
+    private FilterRenderer mFilterRender;
     private OnScreenRenderer mOnScreenRenderer;
 
     public FilterSurfaceView(Context context) {
@@ -23,13 +26,17 @@ public abstract class FilterSurfaceView extends WeGLSurfaceView implements WeGLS
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mOnScreenRenderer = createRenderer(context);
+        mFilterRender = createFilterRenderer(context);
+        mFilterRender.setFilterTextureChangedListener(this);
+
+        mOnScreenRenderer = new OnScreenRenderer(context, getExternalLogTag());
+        mOnScreenRenderer.setExternalTextureId(mFilterRender.getFilterTextureId());
     }
 
-    protected abstract OnScreenRenderer createRenderer(Context context);
+    protected abstract FilterRenderer createFilterRenderer(Context context);
 
     public void setExternalTextureId(int id) {
-        mOnScreenRenderer.setExternalTextureId(id);
+        mFilterRender.setExternalTextureId(id);
     }
 
     @Override
@@ -40,24 +47,33 @@ public abstract class FilterSurfaceView extends WeGLSurfaceView implements WeGLS
     @Override
     public void onEGLContextCreated() {
         Log.d(getExternalLogTag(), "onEGLContextCreated");
+        mFilterRender.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
     }
 
     @Override
     public void onSurfaceChanged(int width, int height) {
         Log.d(getExternalLogTag(), "onSurfaceChanged " + width + "x" + height);
+        mFilterRender.onSurfaceChanged(width, height);
         mOnScreenRenderer.onSurfaceChanged(width, height);
+    }
+
+    @Override
+    public void onFilterTextureChanged(FilterRenderer renderer, int textureID) {
+        mOnScreenRenderer.setExternalTextureId(textureID);
     }
 
     @Override
     public void onDrawFrame() {
         Log.d(getExternalLogTag(), "onDrawFrame");
+        mFilterRender.onDrawFrame();
         mOnScreenRenderer.onDrawFrame();
     }
 
     @Override
     public void onEGLContextToDestroy() {
         Log.d(getExternalLogTag(), "onEGLContextToDestroy");
+        mFilterRender.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
     }
 
