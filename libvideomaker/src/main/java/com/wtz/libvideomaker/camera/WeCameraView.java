@@ -2,6 +2,7 @@ package com.wtz.libvideomaker.camera;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.text.TextUtils;
@@ -12,6 +13,7 @@ import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.filters.FilterRenderer;
 import com.wtz.libvideomaker.renderer.filters.GrayFilterRenderer;
 import com.wtz.libvideomaker.renderer.filters.ReverseFilterRenderer;
+import com.wtz.libvideomaker.renderer.filters.WatermarkRenderer;
 import com.wtz.libvideomaker.renderer.origins.CameraRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 
@@ -20,8 +22,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer,
-        CameraRenderer.OnSharedTextureChangedListener,
-        CameraRenderer.SurfaceTextureListener, FilterRenderer.OnFilterTextureChangedListener {
+        CameraRenderer.OnSharedTextureChangedListener, CameraRenderer.SurfaceTextureListener,
+        FilterRenderer.OnFilterTextureChangedListener, WatermarkRenderer.OnMarkTextureChangedListener {
     private static final String TAG = WeCameraView.class.getSimpleName();
 
     private int mCameraViewWidth;
@@ -40,6 +42,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     private FilterRenderer mFilterRenderer;
     private FilterRenderer mGrayFilterRenderer;
     private FilterRenderer mReverseFilterRenderer;
+    private WatermarkRenderer mWatermarkRenderer;
     private OnScreenRenderer mOnScreenRenderer;
 
     public enum PictureRenderType {
@@ -79,12 +82,12 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         mReverseFilterRenderer = new ReverseFilterRenderer(context);
         mReverseFilterRenderer.setFilterTextureChangedListener(this);
 
-        mOnScreenRenderer = new OnScreenRenderer(context, TAG);
+        mWatermarkRenderer = new WatermarkRenderer(context);
+        mWatermarkRenderer.setMarkTextureChangedListener(this);
+        mWatermarkRenderer.setExternalTextureId(mCameraRenderer.getSharedTextureId());
 
-        int textureId = mCameraRenderer.getSharedTextureId();
-        mOnScreenRenderer.setExternalTextureId(textureId);
-        mGrayFilterRenderer.setExternalTextureId(textureId);
-        mReverseFilterRenderer.setExternalTextureId(textureId);
+        mOnScreenRenderer = new OnScreenRenderer(context, TAG);
+        mOnScreenRenderer.setExternalTextureId(mWatermarkRenderer.getMarkTextureId());
     }
 
     public void setPictureRenderType(PictureRenderType type) {
@@ -102,11 +105,31 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
                 break;
         }
         if (mFilterRenderer == null) {
-            mOnScreenRenderer.setExternalTextureId(mCameraRenderer.getSharedTextureId());
+            mWatermarkRenderer.setExternalTextureId(mCameraRenderer.getSharedTextureId());
         } else {
             mFilterRenderer.setExternalTextureId(mCameraRenderer.getSharedTextureId());
-            mOnScreenRenderer.setExternalTextureId(mFilterRenderer.getFilterTextureId());
+            mWatermarkRenderer.setExternalTextureId(mFilterRenderer.getFilterTextureId());
         }
+    }
+
+    public void setImageMark(Bitmap bitmap, int showWidth, int showHeight,
+                             int corner, int marginX, int marginY) {
+        mWatermarkRenderer.setImageMark(bitmap, showWidth, showHeight, corner, marginX, marginY);
+    }
+
+    public void setTextMark(String text, float textSizePixels, int paddingLeft, int paddingRight,
+                            int paddingTop, int paddingBottom, int textColor, int bgColor,
+                            int corner, int marginX, int marginY) {
+        mWatermarkRenderer.setTextMark(text, textSizePixels, paddingLeft, paddingRight,
+                paddingTop, paddingBottom, textColor, bgColor, corner, marginX, marginY);
+    }
+
+    public void changeImageMarkPosition(int corner, int marginX, int marginY) {
+        mWatermarkRenderer.changeImageMarkPosition(corner, marginX, marginY);
+    }
+
+    public void changeTextMarkPosition(int corner, int marginX, int marginY) {
+        mWatermarkRenderer.changeTextMarkPosition(corner, marginX, marginY);
     }
 
     public void setSaveImageDir(String imageDir) {
@@ -124,7 +147,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         if (mFilterRenderer != null) {
             mFilterRenderer.setExternalTextureId(textureID);
         } else {
-            mOnScreenRenderer.setExternalTextureId(textureID);
+            mWatermarkRenderer.setExternalTextureId(textureID);
         }
     }
 
@@ -133,7 +156,12 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         if (mFilterRenderer != renderer) {
             return;
         }
-        mOnScreenRenderer.setExternalTextureId(mFilterRenderer.getFilterTextureId());
+        mWatermarkRenderer.setExternalTextureId(mFilterRenderer.getFilterTextureId());
+    }
+
+    @Override
+    public void onMarkTextureChanged(int textureID) {
+        mOnScreenRenderer.setExternalTextureId(textureID);
     }
 
     @Override
@@ -147,6 +175,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         mCameraRenderer.onEGLContextCreated();
         mGrayFilterRenderer.onEGLContextCreated();
         mReverseFilterRenderer.onEGLContextCreated();
+        mWatermarkRenderer.onEGLContextCreated();
         mOnScreenRenderer.onEGLContextCreated();
     }
 
@@ -213,6 +242,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         mCameraRenderer.onSurfaceChanged(width, height);
         mGrayFilterRenderer.onSurfaceChanged(width, height);
         mReverseFilterRenderer.onSurfaceChanged(width, height);
+        mWatermarkRenderer.onSurfaceChanged(width, height);
         mOnScreenRenderer.onSurfaceChanged(width, height);
 
         int[] size = mCamera.fitSurfaceSize(width, height);
@@ -242,6 +272,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         if (mFilterRenderer != null) {
             mFilterRenderer.onDrawFrame();
         }
+        mWatermarkRenderer.onDrawFrame();
         mOnScreenRenderer.onDrawFrame();
         if (isTakingPhoto) {
             isTakingPhoto = false;
@@ -264,7 +295,12 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
         mCameraRenderer.onEGLContextToDestroy();
         mGrayFilterRenderer.onEGLContextToDestroy();
         mReverseFilterRenderer.onEGLContextToDestroy();
+        mWatermarkRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
+    }
+
+    public void release() {
+        mWatermarkRenderer.releaseMarkBitmap();
     }
 
 }

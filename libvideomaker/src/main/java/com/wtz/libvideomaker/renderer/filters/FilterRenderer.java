@@ -2,6 +2,7 @@ package com.wtz.libvideomaker.renderer.filters;
 
 import android.content.Context;
 import android.opengl.GLES20;
+import android.opengl.Matrix;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
 import com.wtz.libvideomaker.utils.LogUtils;
@@ -149,6 +150,23 @@ public abstract class FilterRenderer implements WeGLSurfaceView.WeRenderer {
      */
     protected abstract int getVertexDrawCount();
 
+    protected float[] getDefaultVertexCoordData() {
+        return new float[]{
+                -1f, -1f,
+                1f, -1f,
+                -1f, 1f,
+                1f, 1f
+        };
+    }
+
+    protected float[] getDefaultTextureCoordData() {
+        return new float[]{
+                0f, 1f,
+                1f, 1f,
+                0f, 0f,
+                1f, 0f
+        };
+    }
 
     private void initCoordinatesData() {
         /*
@@ -238,6 +256,17 @@ public abstract class FilterRenderer implements WeGLSurfaceView.WeRenderer {
      * 获取指定图像绘制时位置变换矩阵
      */
     protected abstract float[] getPositionMatrix();
+
+    protected void defaultPositionMatrixChange(float[] matrix) {
+        // 初始化单位矩阵
+        Matrix.setIdentityM(matrix, 0);
+
+        // 沿 x 轴旋转 180 度以解决FBO与纹理上下颠倒的问题
+        // rotateM(float[] m, int mOffset, float a, float x, float y, float z)
+        //  * @param a angle to rotate in degrees
+        //  * @param x、y、z： 是否需要沿着 X、Y、Z 轴旋转， 0 不旋转，1f 需要旋转
+        Matrix.rotateM(matrix, 0, 180f, 1f, 0, 0);
+    }
 
     private void bindTextureToFBO(int width, int height) {
         mOldOutputTextureIds[0] = mOutputTextureIds[0];

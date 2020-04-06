@@ -1,7 +1,6 @@
 package com.wtz.libvideomaker.renderer.filters;
 
 import android.content.Context;
-import android.opengl.Matrix;
 
 import com.wtz.libvideomaker.R;
 
@@ -35,22 +34,12 @@ public class ReverseFilterRenderer extends FilterRenderer {
 
     @Override
     protected float[] getVertexCoordData() {
-        return new float[]{
-                -1f, -1f,
-                1f, -1f,
-                -1f, 1f,
-                1f, 1f
-        };
+        return getDefaultVertexCoordData();
     }
 
     @Override
     protected float[] getTextureCoordData() {
-        return new float[]{
-                0f, 1f,
-                1f, 1f,
-                0f, 0f,
-                1f, 0f
-        };
+        return getDefaultTextureCoordData();
     }
 
     @Override
@@ -60,14 +49,7 @@ public class ReverseFilterRenderer extends FilterRenderer {
 
     @Override
     protected void changePositionMatrix(int width, int height) {
-        // 初始化单位矩阵
-        Matrix.setIdentityM(mPositionMatrix, 0);
-
-        // 沿 x 轴旋转 180 度以解决FBO与纹理上下颠倒的问题
-        // rotateM(float[] m, int mOffset, float a, float x, float y, float z)
-        //  * @param a angle to rotate in degrees
-        //  * @param x、y、z： 是否需要沿着 X、Y、Z 轴旋转， 0 不旋转，1f 需要旋转
-        Matrix.rotateM(mPositionMatrix, 0, 180f, 1f, 0, 0);
+        defaultPositionMatrixChange(mPositionMatrix);
     }
 
     @Override

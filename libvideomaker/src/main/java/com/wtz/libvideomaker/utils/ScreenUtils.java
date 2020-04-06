@@ -1,14 +1,19 @@
 package com.wtz.libvideomaker.utils;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.View;
 import android.view.WindowManager;
 
 import java.lang.reflect.Method;
+
+import static android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+import static android.view.View.SYSTEM_UI_FLAG_IMMERSIVE;
 
 public class ScreenUtils {
 
@@ -83,6 +88,7 @@ public class ScreenUtils {
 
     /**
      * 获取状态栏高度
+     *
      * @param context
      * @return
      */
@@ -98,6 +104,12 @@ public class ScreenUtils {
             result = resources.getDimensionPixelSize(resourceId);
         }
         return result;
+    }
+
+    public static void hideNavigationBar(Activity activity) {
+        View decorView = activity.getWindow().getDecorView();
+        int option = SYSTEM_UI_FLAG_HIDE_NAVIGATION | SYSTEM_UI_FLAG_IMMERSIVE;
+        decorView.setSystemUiVisibility(option);
     }
 
 }
