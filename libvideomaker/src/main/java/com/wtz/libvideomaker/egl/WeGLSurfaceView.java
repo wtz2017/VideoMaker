@@ -27,6 +27,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
      */
     private boolean isUsable;
 
+    private WeakReference<WeGLSurfaceView> mWeakReference;
     private WeGLThread mGLThread;
     private WeGLRenderer mRenderer;
 
@@ -116,7 +117,8 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                 throw new RuntimeException("The render from getRenderer can't be null!");
             }
 
-            mGLThread = new GLThread(new WeakReference<>(this), getExternalLogTag());
+            mWeakReference = new WeakReference<>(this);
+            mGLThread = new GLThread(mWeakReference, getExternalLogTag());
             mGLThread.start();
             LogUtils.w(TAG, mExternalTag + "mGLThread start: " + mGLThread.hashCode());
         }
@@ -136,27 +138,31 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         LogUtils.w(TAG, mExternalTag + "surfaceDestroyed");
-        if (mGLThread == null) {
-            // 在被屏蔽使用的情况下走到这里
-            return;
-        }
-        mGLThread.requestExit(new WeGLThread.OnExitedListener() {
-            @Override
-            public void onExited(WeGLThread glThread) {
-                LogUtils.w(TAG, mExternalTag + "mGLThread onExited: " + glThread.hashCode());
-                synchronized (WeGLSurfaceView.this) {// 与初始化创建资源同步
-                    if (glThread != mGLThread) {
-                        // 新的线程已经创建
-                        return;
+        if (mGLThread != null) {
+            mGLThread.requestExit(new WeGLThread.OnExitedListener() {
+                @Override
+                public void onExited(WeGLThread glThread) {
+                    LogUtils.w(TAG, mExternalTag + "mGLThread onExited: " + glThread.hashCode());
+                    synchronized (WeGLSurfaceView.this) {// 与初始化创建资源同步
+                        if (mGLThread != null && glThread != mGLThread) {
+                            // 新的线程已经创建
+                            return;
+                        }
+                        releaseOnGLThreadExit();
                     }
-                    // 不用把外部导入的资源置空，因为这些资源是可能一次性设置的，如果要回收由外部设置空
-//                    mSurface = null;
-//                    mShareContext = null;
-                    mRenderer = null;
-                    mGLThread = null;
                 }
-            }
-        });
+            });
+        } else {
+            releaseOnGLThreadExit();
+        }
+    }
+
+    private void releaseOnGLThreadExit() {
+        // 不用把外部导入的资源置空，因为这些资源是可能一次性设置的，如果要回收由外部设置空
+//        mSurface = null;
+//        mShareContext = null;
+        mRenderer = null;
+        mGLThread = null;
     }
 
     @Override

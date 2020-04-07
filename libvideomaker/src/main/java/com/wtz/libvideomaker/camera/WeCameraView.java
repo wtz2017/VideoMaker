@@ -32,7 +32,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLRenderer,
 
     boolean isTakingPhoto;
     private String mSaveImageDir;
-    private static final String PHOTO_PREFIX = "WePhoto_";
+    private static final String PHOTO_PREFIX = "We_IMG_";
     private static final String PHOTO_SUFFIX = ".jpg";
     private final SimpleDateFormat mSimpleDateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
 
@@ -56,10 +56,6 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLRenderer,
     }
 
     private OnCameraSizeChangedListener mOnCameraSizeChangedListener;
-
-    public void setOnCameraSizeChangedListener(OnCameraSizeChangedListener listener) {
-        this.mOnCameraSizeChangedListener = listener;
-    }
 
     public WeCameraView(Context context) {
         this(context, null);
@@ -89,6 +85,18 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLRenderer,
 
         mOnScreenRenderer = new OnScreenRenderer(context, TAG);
         mOnScreenRenderer.setExternalTextureId(mWatermarkRenderer.getMarkTextureId());
+    }
+
+    public void setOnCameraSizeChangedListener(OnCameraSizeChangedListener listener) {
+        this.mOnCameraSizeChangedListener = listener;
+    }
+
+    public void setScreenTextureChangeListener(OnScreenRenderer.ScreenTextureChangeListener listener) {
+        mOnScreenRenderer.setScreenTextureChangeListener(listener);
+    }
+
+    public int getScreenTextureId() {
+        return mOnScreenRenderer.getExternalTextureId();
     }
 
     public void setPictureRenderType(PictureRenderType type) {

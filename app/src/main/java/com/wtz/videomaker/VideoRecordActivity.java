@@ -3,8 +3,6 @@ package com.wtz.videomaker;
 import android.Manifest;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Environment;
@@ -22,9 +20,12 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.wtz.libvideomaker.camera.WeCameraView;
+import com.wtz.libvideomaker.recorder.WeVideoRecorder;
+import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.filters.WatermarkRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ScreenUtils;
+import com.wtz.videomaker.utils.DateTimeUtil;
 import com.wtz.videomaker.utils.PermissionChecker;
 import com.wtz.videomaker.utils.PermissionHandler;
 
@@ -33,9 +34,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 
-public class CameraActivity extends AppCompatActivity implements PermissionHandler.PermissionHandleListener,
-        WeCameraView.OnCameraSizeChangedListener, View.OnClickListener, RadioGroup.OnCheckedChangeListener {
-    private static final String TAG = CameraActivity.class.getSimpleName();
+public class VideoRecordActivity extends AppCompatActivity implements PermissionHandler.PermissionHandleListener,
+        WeCameraView.OnCameraSizeChangedListener, View.OnClickListener, RadioGroup.OnCheckedChangeListener,
+        OnScreenRenderer.ScreenTextureChangeListener {
+    private static final String TAG = VideoRecordActivity.class.getSimpleName();
 
     private PermissionHandler mPermissionHandler;
 
@@ -44,27 +46,26 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
     private boolean needHideNav;
 
     private WeCameraView mWeCameraView;
+    private WeVideoRecorder mWeVideoRecorder;
 
-    private TextView mTitleView;
-    private TextView mCameraSizeView;
     private Button mChangeCameraButton;
-    private Button mSaveImageButton;
+    private Button mRecordButton;
+
+    private View mIndicatorLayout;
+    private View mIndicatorLight;
+    private TextView mIndicatorTime;
+
+    private String mSaveVideoDir;
 
     private boolean isBackCamera = true;
-
-    private int mImgMarkCorner = WatermarkRenderer.CORNER_LEFT_BOTTOM;
-    private static final int IMG_MARK_SIZE_RESID = R.dimen.dp_60;
-    private int mImgMarkMarginX = 0;
-    private int mImgMarkMarginY = 0;
-    private boolean addImgMarkMarginX = true;
-    private boolean addImgMarkMarginY = true;
 
     private int mTextMarkCorner = WatermarkRenderer.CORNER_RIGHT_TOP;
     private static final int TEXT_MARK_SIZE_RESID = R.dimen.sp_12;
     private static final int TEXT_MARK_PADDING_X = R.dimen.dp_10;
     private static final int TEXT_MARK_PADDING_Y = R.dimen.dp_6;
-    private static final int TEXT_MARK_MARIN = R.dimen.dp_15;
+    private static final int TEXT_MARK_MARIN = R.dimen.dp_5;
 
+    private static final int UPDATE_RECORD_INFO_INTERVAL = 500;
     private Handler mUIHandler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -73,10 +74,10 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
         super.onCreate(savedInstanceState);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        ScreenUtils.hideNavigationBar(CameraActivity.this); // 隐藏导航栏
+        ScreenUtils.hideNavigationBar(VideoRecordActivity.this); // 隐藏导航栏
         needHideNav = false;
 
-        setContentView(R.layout.activity_camera);
+        setContentView(R.layout.activity_video_record);
 
         mContentView = findViewById(android.R.id.content);
         //监听 content 视图树的变化
@@ -84,14 +85,6 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
 
         mWeCameraView = findViewById(R.id.we_camera);
         mWeCameraView.setOnCameraSizeChangedListener(this);
-        File savePath = new File(Environment.getExternalStorageDirectory(), "WePhotos");
-        mWeCameraView.setSaveImageDir(savePath.getAbsolutePath());
-
-        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.purple_ball);
-        int imgSize = (int) (getResources().getDimension(IMG_MARK_SIZE_RESID) + 0.5f);
-        mWeCameraView.setImageMark(bitmap, imgSize, imgSize,
-                mImgMarkCorner, mImgMarkMarginX, mImgMarkMarginY);
-
         String date = new SimpleDateFormat("yyyy/MM/dd").format(new Date());
         int textColor = Color.parseColor("#FFFF00");
         int textBgColor = Color.parseColor("#33DEDEDE");
@@ -103,23 +96,19 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
                 textPaddingX, textPaddingY, textPaddingY, textColor, textBgColor,
                 mTextMarkCorner, textMargin, textMargin);
 
-        mTitleView = findViewById(R.id.tv_title);
-        mCameraSizeView = findViewById(R.id.tv_preview_size);
+        File savePath = new File(Environment.getExternalStorageDirectory(), "WePhotos");
+        mSaveVideoDir = savePath.getAbsolutePath();
 
         mChangeCameraButton = findViewById(R.id.btn_change_camera);
         mChangeCameraButton.setOnClickListener(this);
-        mSaveImageButton = findViewById(R.id.btn_save_image);
-        mSaveImageButton.setOnClickListener(this);
+        mRecordButton = findViewById(R.id.btn_record);
+        mRecordButton.setOnClickListener(this);
+
+        mIndicatorLayout = findViewById(R.id.ll_indicator_layout);
+        mIndicatorLight = findViewById(R.id.v_record_indicator_light);
+        mIndicatorTime = findViewById(R.id.tv_record_time);
 
         ((RadioGroup) findViewById(R.id.rg_render_type)).setOnCheckedChangeListener(this);
-
-        mUIHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mTitleView.setVisibility(View.GONE);
-            }
-        }, 5000);
-        mUIHandler.post(mChangeImgMarkRunnable);
 
         mPermissionHandler = new PermissionHandler(this, this);
         mPermissionHandler.handleCommonPermission(Manifest.permission.CAMERA);
@@ -134,7 +123,6 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
                         needHideNav = true;
                         mContentHeight = mContentView.getHeight();
                     }
-                    LogUtils.d(TAG, "ViewTreeObserver onGlobalLayout needHideNav=" + needHideNav);
                 }
             };
 
@@ -170,7 +158,10 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
                 LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
             }
         } else if (Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(permission)) {
-            // do something
+            if (state == PermissionChecker.PermissionState.USER_NOT_GRANTED) {
+                LogUtils.e(TAG, "onPermissionResult " + permission + " state is USER_NOT_GRANTED!");
+                finish();
+            }
         }
     }
 
@@ -214,41 +205,6 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
         return super.onTouchEvent(event);
     }
 
-    private Runnable mChangeImgMarkRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mUIHandler.removeCallbacks(this);
-            if (addImgMarkMarginX) {
-                mImgMarkMarginX++;
-                if (mImgMarkMarginX > 310) {
-                    mImgMarkMarginX = 310;
-                    addImgMarkMarginX = false;
-                }
-            } else {
-                mImgMarkMarginX--;
-                if (mImgMarkMarginX < 0) {
-                    mImgMarkMarginX = 0;
-                    addImgMarkMarginX = true;
-                }
-            }
-            if (addImgMarkMarginY) {
-                mImgMarkMarginY++;
-                if (mImgMarkMarginY > 620) {
-                    mImgMarkMarginY = 620;
-                    addImgMarkMarginY = false;
-                }
-            } else {
-                mImgMarkMarginY--;
-                if (mImgMarkMarginY < 0) {
-                    mImgMarkMarginY = 0;
-                    addImgMarkMarginY = true;
-                }
-            }
-            mWeCameraView.changeImageMarkPosition(mImgMarkCorner, mImgMarkMarginX, mImgMarkMarginY);
-            mUIHandler.postDelayed(this, 10);
-        }
-    };
-
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
@@ -256,8 +212,8 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
                 changeCamera();
                 break;
 
-            case R.id.btn_save_image:
-                saveImage();
+            case R.id.btn_record:
+                record();
                 break;
 
         }
@@ -273,11 +229,40 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
         }
     }
 
-    private void saveImage() {
-        if (mWeCameraView != null) {
-            mWeCameraView.takePhoto();
+    private void record() {
+        if (mWeVideoRecorder == null) {
+            mWeVideoRecorder = new WeVideoRecorder(this);
+            mWeVideoRecorder.setExternalTextureId(mWeCameraView.getScreenTextureId());
+            mWeVideoRecorder.setSaveVideoDir(mSaveVideoDir);
+            mWeVideoRecorder.startEncode(mWeCameraView.getSharedEGLContext(),
+                    mWeCameraView.getWidth(), mWeCameraView.getHeight());
+            mRecordButton.setText(R.string.stop_record);
+            mIndicatorLayout.setVisibility(View.VISIBLE);
+            mUIHandler.post(mUpdateRecordInfoRunnable);
+        } else {
+            mWeVideoRecorder.stopEncode();
+            mWeVideoRecorder = null;
+            mIndicatorLayout.setVisibility(View.GONE);
+            mRecordButton.setText(R.string.start_record);
         }
     }
+
+    private Runnable mUpdateRecordInfoRunnable = new Runnable() {
+        @Override
+        public void run() {
+            mUIHandler.removeCallbacks(this);
+            if (mWeVideoRecorder != null) {
+                String time = DateTimeUtil.changeRemainTimeToHms(mWeVideoRecorder.getEncodeTimeMills());
+                mIndicatorTime.setText(time);
+                if (mIndicatorLight.getVisibility() == View.INVISIBLE) {
+                    mIndicatorLight.setVisibility(View.VISIBLE);
+                } else {
+                    mIndicatorLight.setVisibility(View.INVISIBLE);
+                }
+            }
+            mUIHandler.postDelayed(this, UPDATE_RECORD_INFO_INTERVAL);
+        }
+    };
 
     @Override
     public void onCheckedChanged(RadioGroup group, int checkedId) {
@@ -305,28 +290,16 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
 
     @Override
     public void onCameraSizeChanged(int surfaceWidth, int surfaceHeight, int previewWidth, int previewHeight) {
-        final StringBuilder builder = new StringBuilder();
-        builder.append("Surface size:");
-        builder.append(surfaceWidth);
-        builder.append("x");
-        builder.append(surfaceHeight);
-        builder.append("; ratio:");
-        builder.append(surfaceWidth * 1.0f / surfaceHeight);
-        builder.append("\n");
+        if (mWeVideoRecorder != null) {
+            mWeVideoRecorder.onVideoSizeChanged(surfaceWidth, surfaceHeight);
+        }
+    }
 
-        builder.append("Preview size:");
-        builder.append(previewWidth);
-        builder.append("x");
-        builder.append(previewHeight);
-        builder.append("; ratio:");
-        builder.append(previewWidth * 1.0f / previewHeight);
-
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mCameraSizeView.setText(builder);
-            }
-        });
+    @Override
+    public void onScreenTextureChanged(int textureId) {
+        if (mWeVideoRecorder != null) {
+            mWeVideoRecorder.setExternalTextureId(textureId);
+        }
     }
 
     @Override
@@ -338,6 +311,12 @@ public class CameraActivity extends AppCompatActivity implements PermissionHandl
     @Override
     protected void onStop() {
         LogUtils.d(TAG, "onStop");
+        if (mWeVideoRecorder != null) {
+            mWeVideoRecorder.stopEncode();
+            mWeVideoRecorder = null;
+            mIndicatorLayout.setVisibility(View.GONE);
+            mRecordButton.setText(R.string.start_record);
+        }
         super.onStop();
     }
 

@@ -28,6 +28,9 @@
         <activity
             android:name=".CameraActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />
+        <activity
+            android:name=".VideoRecordActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize" />
     </application>
 
 </manifest>

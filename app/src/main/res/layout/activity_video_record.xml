@@ -4,32 +4,37 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <LinearLayout
+    <com.wtz.libvideomaker.camera.WeCameraView
+        android:id="@+id/we_camera"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="match_parent" />
 
-        <TextView
-            android:id="@+id/tv_title"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:gravity="center"
-            android:text="测试动态消失改变surface大小后的自适应能力，\n5秒后自动关闭此View" />
-
-        <com.wtz.libvideomaker.camera.WeCameraView
-            android:id="@+id/we_camera"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/tv_preview_size"
+    <LinearLayout
+        android:id="@+id/ll_indicator_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="预览宽高和比例"
-        android:textColor="#ff0000" />
+        android:layout_gravity="top"
+        android:layout_marginLeft="5dp"
+        android:layout_marginTop="7dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <View
+            android:id="@+id/v_record_indicator_light"
+            android:layout_width="@dimen/dp_10"
+            android:layout_height="@dimen/dp_10"
+            android:background="@drawable/circle_ball_shape" />
+
+        <TextView
+            android:id="@+id/tv_record_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="5dp"
+            android:text="00:00:00"
+            android:textColor="#ff0000"
+            android:textSize="@dimen/sp_16" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -44,9 +49,9 @@
         <Button
             android:id="@+id/btn_change_camera"
             android:layout_width="0dp"
-            android:layout_weight="1.5"
             android:layout_height="match_parent"
             android:layout_marginRight="5dp"
+            android:layout_weight="1.5"
             android:background="#80ffffff"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
@@ -85,7 +90,7 @@
         </RadioGroup>
 
         <Button
-            android:id="@+id/btn_save_image"
+            android:id="@+id/btn_record"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginLeft="5dp"

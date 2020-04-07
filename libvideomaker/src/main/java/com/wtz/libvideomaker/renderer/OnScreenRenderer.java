@@ -77,6 +77,16 @@ public class OnScreenRenderer implements WeGLRenderer {
     // 外部传入的纹理内容句柄
     private int mExternalTextureId;
 
+    public interface ScreenTextureChangeListener {
+        void onScreenTextureChanged(int textureId);
+    }
+
+    private ScreenTextureChangeListener mScreenTextureChangeListener;
+
+    public void setScreenTextureChangeListener(ScreenTextureChangeListener listener) {
+        this.mScreenTextureChangeListener = listener;
+    }
+
     public OnScreenRenderer(Context mContext, String tag) {
         this.mContext = mContext;
         this.mTag = tag;
@@ -85,6 +95,13 @@ public class OnScreenRenderer implements WeGLRenderer {
     public void setExternalTextureId(int id) {
         LogUtils.d(TAG, mTag + " setExternalTextureId " + id);
         this.mExternalTextureId = id;
+        if (mScreenTextureChangeListener != null) {
+            mScreenTextureChangeListener.onScreenTextureChanged(mExternalTextureId);
+        }
+    }
+
+    public int getExternalTextureId() {
+        return mExternalTextureId;
     }
 
     @Override

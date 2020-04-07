@@ -28,4 +28,11 @@
         android:layout_marginTop="20dp"
         android:text="摄像头预览" />
 
+    <Button
+        android:id="@+id/btn_video_record"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="视频录制" />
+
 </LinearLayout>
