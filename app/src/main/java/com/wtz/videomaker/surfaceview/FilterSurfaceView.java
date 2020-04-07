@@ -5,11 +5,12 @@ import android.util.AttributeSet;
 import android.util.Log;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.filters.FilterRenderer;
 
 public abstract class FilterSurfaceView extends WeGLSurfaceView
-        implements WeGLSurfaceView.WeRenderer, FilterRenderer.OnFilterTextureChangedListener {
+        implements WeGLRenderer, FilterRenderer.OnFilterTextureChangedListener {
 
     private FilterRenderer mFilterRender;
     private OnScreenRenderer mOnScreenRenderer;
@@ -40,7 +41,7 @@ public abstract class FilterSurfaceView extends WeGLSurfaceView
     }
 
     @Override
-    protected WeRenderer getRenderer() {
+    protected WeGLRenderer getRenderer() {
         return this;
     }
 

@@ -5,12 +5,13 @@ import android.util.AttributeSet;
 import android.util.Log;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.origins.ImgRenderer;
 import com.wtz.libvideomaker.renderer.origins.MultiImgRenderer;
 import com.wtz.videomaker.R;
 
-public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer, ImgRenderer.OnSharedTextureChangedListener {
+public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLRenderer, ImgRenderer.OnSharedTextureChangedListener {
     private static final String TAG = MultiImgSurfaceView.class.getSimpleName();
 
     private ImgRenderer mImgOffScreenRenderer;
@@ -49,7 +50,7 @@ public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLSurfaceV
     }
 
     @Override
-    protected WeRenderer getRenderer() {
+    protected WeGLRenderer getRenderer() {
         return this;
     }
 

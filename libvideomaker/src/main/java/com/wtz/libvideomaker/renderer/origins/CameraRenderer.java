@@ -11,7 +11,7 @@ import android.view.Surface;
 import android.view.WindowManager;
 
 import com.wtz.libvideomaker.R;
-import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 import com.wtz.libvideomaker.utils.TextureUtils;
@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class CameraRenderer implements WeGLSurfaceView.WeRenderer, SurfaceTexture.OnFrameAvailableListener {
+public class CameraRenderer implements WeGLRenderer, SurfaceTexture.OnFrameAvailableListener {
     private static final String TAG = CameraRenderer.class.getSimpleName();
 
     private Context mContext;

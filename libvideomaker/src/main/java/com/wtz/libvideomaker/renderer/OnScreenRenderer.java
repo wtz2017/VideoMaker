@@ -7,7 +7,7 @@ import android.net.Uri;
 import android.opengl.GLES20;
 
 import com.wtz.libvideomaker.R;
-import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLRenderer;
 import com.wtz.libvideomaker.utils.GLBitmapUtils;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class OnScreenRenderer implements WeGLSurfaceView.WeRenderer {
+public class OnScreenRenderer implements WeGLRenderer {
     
     private static final String TAG = OnScreenRenderer.class.getSimpleName();
 

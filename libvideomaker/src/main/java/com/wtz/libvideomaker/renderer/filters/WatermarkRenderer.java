@@ -7,7 +7,7 @@ import android.opengl.GLUtils;
 import android.opengl.Matrix;
 
 import com.wtz.libvideomaker.R;
-import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 import com.wtz.libvideomaker.utils.TextUtils;
@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class WatermarkRenderer implements WeGLSurfaceView.WeRenderer {
+public class WatermarkRenderer implements WeGLRenderer {
 
     private static final String TAG = WatermarkRenderer.class.getSimpleName();
 

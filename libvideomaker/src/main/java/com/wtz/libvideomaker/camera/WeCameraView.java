@@ -9,6 +9,7 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 
 import com.wtz.libvideomaker.egl.WeGLSurfaceView;
+import com.wtz.libvideomaker.egl.WeGLRenderer;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.filters.FilterRenderer;
 import com.wtz.libvideomaker.renderer.filters.GrayFilterRenderer;
@@ -21,7 +22,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeRenderer,
+public class WeCameraView extends WeGLSurfaceView implements WeGLRenderer,
         CameraRenderer.OnSharedTextureChangedListener, CameraRenderer.SurfaceTextureListener,
         FilterRenderer.OnFilterTextureChangedListener, WatermarkRenderer.OnMarkTextureChangedListener {
     private static final String TAG = WeCameraView.class.getSimpleName();
@@ -165,7 +166,7 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLSurfaceView.WeR
     }
 
     @Override
-    protected WeRenderer getRenderer() {
+    protected WeGLRenderer getRenderer() {
         return this;
     }
 
