@@ -4,7 +4,7 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
-import com.wtz.libvideomaker.egl.WeGLRenderer;
+import com.wtz.libvideomaker.renderer.BaseRender;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 import com.wtz.libvideomaker.utils.TextureUtils;
@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public abstract class FilterRenderer implements WeGLRenderer {
+public abstract class FilterRenderer extends BaseRender {
 
     private Context mContext;
     private String mTag;
@@ -149,24 +149,6 @@ public abstract class FilterRenderer implements WeGLRenderer {
      * 获取绘制时要画的顶点数量
      */
     protected abstract int getVertexDrawCount();
-
-    protected float[] getDefaultVertexCoordData() {
-        return new float[]{
-                -1f, -1f,
-                1f, -1f,
-                -1f, 1f,
-                1f, 1f
-        };
-    }
-
-    protected float[] getDefaultTextureCoordData() {
-        return new float[]{
-                0f, 1f,
-                1f, 1f,
-                0f, 0f,
-                1f, 0f
-        };
-    }
 
     private void initCoordinatesData() {
         /*
@@ -316,8 +298,10 @@ public abstract class FilterRenderer implements WeGLRenderer {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
 
         // 清屏
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        if (canClearScreenOnDraw) {
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        }
 
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分
         GLES20.glUseProgram(mProgramHandle);

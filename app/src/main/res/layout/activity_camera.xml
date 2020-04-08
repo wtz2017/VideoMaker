@@ -93,7 +93,7 @@
             android:background="#80ffffff"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
-            android:text="@string/start_record" />
+            android:text="@string/take_photo" />
 
     </LinearLayout>
 

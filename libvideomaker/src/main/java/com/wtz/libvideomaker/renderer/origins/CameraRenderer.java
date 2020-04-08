@@ -11,7 +11,7 @@ import android.view.Surface;
 import android.view.WindowManager;
 
 import com.wtz.libvideomaker.R;
-import com.wtz.libvideomaker.egl.WeGLRenderer;
+import com.wtz.libvideomaker.renderer.BaseRender;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 import com.wtz.libvideomaker.utils.TextureUtils;
@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class CameraRenderer implements WeGLRenderer, SurfaceTexture.OnFrameAvailableListener {
+public class CameraRenderer extends BaseRender implements SurfaceTexture.OnFrameAvailableListener {
     private static final String TAG = CameraRenderer.class.getSimpleName();
 
     private Context mContext;
@@ -173,13 +173,7 @@ public class CameraRenderer implements WeGLRenderer, SurfaceTexture.OnFrameAvail
          *                                          y
          */
         // 顶点坐标，决定图像内容最终显示的位置区域
-        mVertexCoordData = new float[]{
-                // 整个视口区域
-                -1f, -1f,
-                1f, -1f,
-                -1f, 1f,
-                1f, 1f,
-        };
+        mVertexCoordData = getDefaultVertexCoordData();
         mVertexCoordBuffer = ByteBuffer
                 .allocateDirect(mVertexCoordData.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder())
@@ -194,17 +188,8 @@ public class CameraRenderer implements WeGLRenderer, SurfaceTexture.OnFrameAvail
 
         // 纹理坐标（窗口、FBO），决定图像内容选取的区域部分和摆放方向
         // FBO 纹理坐标，上下左右四角要与顶点坐标一一对应起来
-        mTextureCoordData = new float[]{
-//                0f, 0f,
-//                1f, 0f,
-//                0f, 1f,
-//                1f, 1f
-                // 这里使用窗口坐标，并使用矩阵旋转来代替 FBO 坐标翻转
-                0f, 1f,
-                1f, 1f,
-                0f, 0f,
-                1f, 0f
-        };
+        // 这里使用窗口坐标，并使用矩阵旋转来代替 FBO 坐标翻转
+        mTextureCoordData = getDefaultTextureCoordData();
         mTextureCoordBuffer = ByteBuffer
                 .allocateDirect(mTextureCoordData.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder())
@@ -439,8 +424,10 @@ public class CameraRenderer implements WeGLRenderer, SurfaceTexture.OnFrameAvail
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
 
         // 清屏
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        if (canClearScreenOnDraw) {
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        }
 
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分
         GLES20.glUseProgram(mProgramHandle);

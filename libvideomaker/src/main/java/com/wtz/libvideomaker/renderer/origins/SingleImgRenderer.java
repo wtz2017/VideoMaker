@@ -28,27 +28,7 @@ public class SingleImgRenderer extends ImgRenderer {
 
     @Override
     protected float[] getVertexCoordData() {
-        /*
-         *        归一化顶点坐标系                窗口纹理坐标系             FBO 纹理坐标系
-         *               y                                                    y
-         *               ↑                          ┆                         ↑
-         * (-1,1)------(0,1)------(1,1)        ---(0,0)------(1,0)-->x   ---(0,1)------(1,1)
-         *    ┆          ┆          ┆               ┆          ┆              ┆          ┆
-         *    ┆          ┆          ┆               ┆          ┆              ┆          ┆
-         * (-1,0)------(0,0)------(1,0)-->x         ┆          ┆              ┆          ┆
-         *    ┆          ┆          ┆               ┆          ┆              ┆          ┆
-         *    ┆          ┆          ┆               ┆          ┆              ┆          ┆
-         * (-1,-1)-----(0,-1)-----(1,-1)          (0,1)------(1,1)       ---(0,0)------(1,0)-->x
-         *                                          ↓                         ┆
-         *                                          y
-         */
-        return new float[]{
-                // 整个视口区域
-                -1f, -1f,
-                1f, -1f,
-                -1f, 1f,
-                1f, 1f,
-        };
+        return getDefaultVertexCoordData();
     }
 
     @Override

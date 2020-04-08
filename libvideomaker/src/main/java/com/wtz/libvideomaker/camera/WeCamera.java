@@ -37,6 +37,7 @@ public class WeCamera implements AcceleFocusListener.OnFocusListener {
             Camera.Parameters parameters = mCamera.getParameters();
             parameters.setFlashMode("off");// 是否开启闪光灯，直播不需要开启
             parameters.setPreviewFormat(ImageFormat.NV21);// 使用YUV格式NV21
+            setPreviewFPS(parameters);
             setPicAndPreviewSize(parameters, surfaceWidth, surfaceHeight);
             mCamera.setParameters(parameters);
 
@@ -69,6 +70,24 @@ public class WeCamera implements AcceleFocusListener.OnFocusListener {
         return mPreviewSize;
     }
 
+    private void setPreviewFPS(Camera.Parameters parameters) {
+        List<int[]> fpsRanges = parameters.getSupportedPreviewFpsRange();
+        int maxIndex = 0;
+        int maxFps = 0;
+        int[] fpsArray;
+        int size = fpsRanges.size();
+        for (int i = 0; i < size; i++) {
+            fpsArray = fpsRanges.get(i);
+            if (fpsArray[0] > maxFps) {
+                maxFps = fpsArray[0];
+                maxIndex = i;
+            }
+        }
+        fpsArray = fpsRanges.get(maxIndex);
+        parameters.setPreviewFpsRange(fpsArray[0], fpsArray[1]);
+        LogUtils.w(TAG, "setPreviewFPS:" + (fpsArray[0] / 1000.0f) + "~" + (fpsArray[1] / 1000.0f));
+    }
+
     private void setPicAndPreviewSize(Camera.Parameters parameters, int surfaceWidth, int surfaceHeight) {
         if (surfaceWidth <= 0) {
             surfaceWidth = DEFAULT_SUFACE_WIDTH;
@@ -85,6 +104,7 @@ public class WeCamera implements AcceleFocusListener.OnFocusListener {
         parameters.setPreviewSize(size.width, size.height);
         mPreviewSize[0] = size.width;
         mPreviewSize[1] = size.height;
+        LogUtils.w(TAG, "setPreviewSize:" + mPreviewSize[0] + "x" + mPreviewSize[1]);
     }
 
     /**

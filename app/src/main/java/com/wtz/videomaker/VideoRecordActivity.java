@@ -84,6 +84,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         mContentView.getViewTreeObserver().addOnGlobalLayoutListener(mOnGlobalLayoutListener);
 
         mWeCameraView = findViewById(R.id.we_camera);
+        mWeCameraView.setClearScreenOnDraw(false);// 缓解某些低端机型录制视频时闪屏问题
         mWeCameraView.setOnCameraSizeChangedListener(this);
         String date = new SimpleDateFormat("yyyy/MM/dd").format(new Date());
         int textColor = Color.parseColor("#FFFF00");

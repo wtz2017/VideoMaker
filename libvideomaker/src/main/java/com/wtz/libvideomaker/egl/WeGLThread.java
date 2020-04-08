@@ -20,10 +20,14 @@ public abstract class WeGLThread extends Thread {
     private WeEGLHelper mEglHelper;
 
     private Object mRenderLock;
+
+    private static final int DEFAULT_FPS = 60;
+    private int mFPS;
     // 在配置 RGBA 32、EGL_DEPTH_SIZE 8、EGL_STENCIL_SIZE 8 情况下：
     // 在 MI 4LTE Android 4.4.4 上测试 eglSwapBuffers 本身耗时约 0 或 10 ms，其中 10 ms 占比 20%
     // 在 HUAWEI DUA-AL00 Android 8.1.0 上测试 eglSwapBuffers 本身耗时约 2-5 ms
-    private static final int RENDER_TIME_INTERVAL = 16;// 期望 1 秒 60 帧包括指令耗时在内的总间隔
+    private static final int INSTRUCTIONS_TIME_MILLS = 3;
+    private int mFrameIntervalMills;// 期望 1 秒 mFPS 帧包括指令耗时在内的总间隔
     private long mNextFrameStartTime;
     private int mRenderInterval;
 
@@ -48,6 +52,14 @@ public abstract class WeGLThread extends Thread {
     public WeGLThread(String externalTag) {
         this.mExternalTag = externalTag + ": ";
         mRenderLock = new Object();
+        mFPS = DEFAULT_FPS;
+        mFrameIntervalMills = (int) (1000.0f / mFPS + 0.5f);
+    }
+
+    public void setRenderFps(int fps) {
+        LogUtils.w(TAG, mExternalTag + "setRenderFps:" + fps);
+        this.mFPS = fps;
+        mFrameIntervalMills = (int) (1000.0f / mFPS + 0.5f);
     }
 
     public void onWindowResize(int w, int h) {
@@ -173,9 +185,9 @@ public abstract class WeGLThread extends Thread {
             }
         } else {
             if (mNextFrameStartTime == 0) {
-                mRenderInterval = RENDER_TIME_INTERVAL - 3;
+                mRenderInterval = mFrameIntervalMills - INSTRUCTIONS_TIME_MILLS;
             } else {
-                mRenderInterval = RENDER_TIME_INTERVAL - (int) (System.currentTimeMillis() - mNextFrameStartTime);
+                mRenderInterval = mFrameIntervalMills - (int) (System.currentTimeMillis() - mNextFrameStartTime);
             }
             if (mRenderInterval <= 0) {
                 // LogUtils.e(TAG, mExternalTag + "Render too slow!!! " + mRenderInterval + "ms");

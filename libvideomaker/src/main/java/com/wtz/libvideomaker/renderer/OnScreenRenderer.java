@@ -7,7 +7,6 @@ import android.net.Uri;
 import android.opengl.GLES20;
 
 import com.wtz.libvideomaker.R;
-import com.wtz.libvideomaker.egl.WeGLRenderer;
 import com.wtz.libvideomaker.utils.GLBitmapUtils;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
@@ -17,7 +16,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class OnScreenRenderer implements WeGLRenderer {
+public class OnScreenRenderer extends BaseRender {
     
     private static final String TAG = OnScreenRenderer.class.getSimpleName();
 
@@ -208,8 +207,10 @@ public class OnScreenRenderer implements WeGLRenderer {
     @Override
     public void onDrawFrame() {
         // 清屏
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        if (canClearScreenOnDraw) {
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        }
 
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分
         GLES20.glUseProgram(mProgramHandle);

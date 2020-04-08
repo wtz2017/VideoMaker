@@ -28,9 +28,12 @@ public abstract class WeGLVideoEncoder {
     private WeGLThread mGLThread;
     private WeGLRenderer mRenderer;
     private int mRenderMode = WeGLRenderer.RENDERMODE_CONTINUOUSLY;
+    private int mRenderFps = 0;
 
     private MediaMuxer mMediaMuxer;
 
+    private static final int MEDIA_FRAME_RATE = 30;// 一般摄像头预览最大 30 帧每秒
+    private static final int I_FRAME_INTERVAL = 1;// 设置关键帧间隔为 1 秒
     private MediaCodec mVideoEncoder;
     private MediaFormat mVideoFormat;
     private MediaCodec.BufferInfo mVideoBufInfo;
@@ -54,6 +57,13 @@ public abstract class WeGLVideoEncoder {
                     exceptionPrefix() + "illegal argument: renderMode " + renderMode);
         }
         mRenderMode = renderMode;
+    }
+
+    public void setRenderFps(int fps) {
+        mRenderFps = fps;
+        if (mGLThread != null) {
+            mGLThread.setRenderFps(mRenderFps);
+        }
     }
 
     public void requestRender() {
@@ -93,6 +103,9 @@ public abstract class WeGLVideoEncoder {
 
             mWeakReference = new WeakReference<>(this);
             mGLThread = new GLThread(mWeakReference, getExternalLogTag());
+            if (mRenderFps > 0) {
+                mGLThread.setRenderFps(mRenderFps);
+            }
             mGLThread.onWindowResize(videoWidth, videoHeight);
             mGLThread.start();
 
@@ -115,8 +128,8 @@ public abstract class WeGLVideoEncoder {
         mVideoFormat = MediaFormat.createVideoFormat(mimeType, videoWidth, videoHeight);
         mVideoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         mVideoFormat.setInteger(MediaFormat.KEY_BIT_RATE, videoWidth * videoHeight * 4);// 设置码率
-        mVideoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);// 一般视频最大 30 帧每秒
-        mVideoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);// 设置关键帧间隔为 1 秒
+        mVideoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, MEDIA_FRAME_RATE);
+        mVideoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL);
 
         try {
             mVideoEncoder = MediaCodec.createEncoderByType(mimeType);

@@ -23,4 +23,5 @@
 
     <string name="start_record">开始\n录制</string>
     <string name="stop_record">停止\n录制</string>
+    <string name="take_photo">拍照</string>
 </resources>

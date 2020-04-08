@@ -27,6 +27,8 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLRenderer,
         FilterRenderer.OnFilterTextureChangedListener, WatermarkRenderer.OnMarkTextureChangedListener {
     private static final String TAG = WeCameraView.class.getSimpleName();
 
+    private static final int RENDER_FPS = 30;//大部分摄像头最高30fps，FPS过高会导致部分低端机型渲染闪屏
+
     private int mCameraViewWidth;
     private int mCameraViewHeight;
 
@@ -70,8 +72,10 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLRenderer,
 //        setRenderMode(RENDERMODE_WHEN_DIRTY);
         // 暂时用持续渲染模式解决脏模式下有时 onFrameAvailable 不回调导致不渲染的 BUG
         setRenderMode(RENDERMODE_CONTINUOUSLY);
+        setRenderFps(RENDER_FPS);
 
         mCameraRenderer = new CameraRenderer(context, this);
+        mCameraRenderer.setClearScreenOnDraw(false);//
         mCameraRenderer.setSharedTextureChangedListener(this);
 
         mGrayFilterRenderer = new GrayFilterRenderer(context);
@@ -85,6 +89,14 @@ public class WeCameraView extends WeGLSurfaceView implements WeGLRenderer,
 
         mOnScreenRenderer = new OnScreenRenderer(context, TAG);
         mOnScreenRenderer.setExternalTextureId(mWatermarkRenderer.getMarkTextureId());
+    }
+
+    public void setClearScreenOnDraw(boolean clearScreen) {
+        mCameraRenderer.setClearScreenOnDraw(clearScreen);
+        mGrayFilterRenderer.setClearScreenOnDraw(clearScreen);
+        mReverseFilterRenderer.setClearScreenOnDraw(clearScreen);
+        mWatermarkRenderer.setClearScreenOnDraw(clearScreen);
+        mOnScreenRenderer.setClearScreenOnDraw(clearScreen);
     }
 
     public void setOnCameraSizeChangedListener(OnCameraSizeChangedListener listener) {

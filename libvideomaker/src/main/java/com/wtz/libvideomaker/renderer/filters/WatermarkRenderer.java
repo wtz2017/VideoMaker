@@ -7,7 +7,7 @@ import android.opengl.GLUtils;
 import android.opengl.Matrix;
 
 import com.wtz.libvideomaker.R;
-import com.wtz.libvideomaker.egl.WeGLRenderer;
+import com.wtz.libvideomaker.renderer.BaseRender;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 import com.wtz.libvideomaker.utils.TextUtils;
@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class WatermarkRenderer implements WeGLRenderer {
+public class WatermarkRenderer extends BaseRender {
 
     private static final String TAG = WatermarkRenderer.class.getSimpleName();
 
@@ -221,13 +221,7 @@ public class WatermarkRenderer implements WeGLRenderer {
         mDefaultPositionMatrix = new float[16];
 
         // 纹理坐标（窗口、FBO），决定图像内容选取的区域部分和摆放方向
-        mTextureCoordData = new float[]{
-                // 默认选取纹理全部区域
-                0f, 1f,
-                1f, 1f,
-                0f, 0f,
-                1f, 0f
-        };
+        mTextureCoordData = getDefaultTextureCoordData();
         mTextureCoordBuffer = ByteBuffer
                 .allocateDirect(mTextureCoordData.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder())
@@ -596,8 +590,10 @@ public class WatermarkRenderer implements WeGLRenderer {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
 
         // 清屏
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        if (canClearScreenOnDraw) {
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+        }
 
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分
         GLES20.glUseProgram(mProgramHandle);

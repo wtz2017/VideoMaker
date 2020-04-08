@@ -21,6 +21,7 @@ public class WeVideoRecorder extends WeGLVideoEncoder implements WeGLRenderer {
 
     private Context mContext;
     private OnScreenRenderer mOnScreenRenderer;
+    private static final int RENDER_FPS = 30;//大部分摄像头最高30fps，FPS过高会导致部分低端机型渲染闪屏
 
     private String mSaveVideoDir;
     private String mVideoPathName;
@@ -31,7 +32,10 @@ public class WeVideoRecorder extends WeGLVideoEncoder implements WeGLRenderer {
     public WeVideoRecorder(Context context) {
         this.mContext = context;
         setRenderMode(RENDERMODE_CONTINUOUSLY);
+        setRenderFps(RENDER_FPS);
+
         mOnScreenRenderer = new OnScreenRenderer(context, TAG);
+        mOnScreenRenderer.setClearScreenOnDraw(false);// 缓解某些低端机型录制视频时闪屏问题
     }
 
     public void setExternalTextureId(int id) {

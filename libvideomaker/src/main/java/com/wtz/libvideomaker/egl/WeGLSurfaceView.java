@@ -32,6 +32,7 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
     private WeGLRenderer mRenderer;
 
     private int mRenderMode = WeGLRenderer.RENDERMODE_CONTINUOUSLY;
+    private int mRenderFps = 0;
 
     public WeGLSurfaceView(Context context) {
         this(context, null);
@@ -67,6 +68,13 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
                     exceptionPrefix() + "illegal argument: renderMode " + renderMode);
         }
         mRenderMode = renderMode;
+    }
+
+    public void setRenderFps(int fps) {
+        mRenderFps = fps;
+        if (mGLThread != null) {
+            mGLThread.setRenderFps(mRenderFps);
+        }
     }
 
     public void requestRender() {
@@ -119,6 +127,9 @@ public abstract class WeGLSurfaceView extends SurfaceView implements SurfaceHold
 
             mWeakReference = new WeakReference<>(this);
             mGLThread = new GLThread(mWeakReference, getExternalLogTag());
+            if (mRenderFps > 0) {
+                mGLThread.setRenderFps(mRenderFps);
+            }
             mGLThread.start();
             LogUtils.w(TAG, mExternalTag + "mGLThread start: " + mGLThread.hashCode());
         }
