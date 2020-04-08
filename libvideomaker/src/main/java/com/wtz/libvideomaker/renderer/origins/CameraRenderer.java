@@ -284,6 +284,9 @@ public class CameraRenderer extends BaseRender implements SurfaceTexture.OnFrame
     }
 
     private void changePositionMatrix() {
+        if (mPositionMatrix == null ||mProjectionMatrix == null) {
+            return;
+        }
         // 初始化单位矩阵
         Matrix.setIdentityM(mPositionMatrix, 0);
         Matrix.setIdentityM(mProjectionMatrix, 0);

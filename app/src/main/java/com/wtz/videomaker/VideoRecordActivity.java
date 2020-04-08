@@ -1,17 +1,22 @@
 package com.wtz.videomaker;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.Display;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.RadioGroup;
 import android.widget.TextView;
@@ -40,6 +45,8 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     private static final String TAG = VideoRecordActivity.class.getSimpleName();
 
     private PermissionHandler mPermissionHandler;
+
+    private Display mDisplay;
 
     private View mContentView;
     private int mContentHeight;
@@ -86,6 +93,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         mWeCameraView = findViewById(R.id.we_camera);
         mWeCameraView.setClearScreenOnDraw(false);// 缓解某些低端机型录制视频时闪屏问题
         mWeCameraView.setOnCameraSizeChangedListener(this);
+        mWeCameraView.setScreenTextureChangeListener(this);
         String date = new SimpleDateFormat("yyyy/MM/dd").format(new Date());
         int textColor = Color.parseColor("#FFFF00");
         int textBgColor = Color.parseColor("#33DEDEDE");
@@ -232,20 +240,55 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
     private void record() {
         if (mWeVideoRecorder == null) {
+            fixCurrentDirection();
+
             mWeVideoRecorder = new WeVideoRecorder(this);
             mWeVideoRecorder.setExternalTextureId(mWeCameraView.getScreenTextureId());
             mWeVideoRecorder.setSaveVideoDir(mSaveVideoDir);
             mWeVideoRecorder.startEncode(mWeCameraView.getSharedEGLContext(),
                     mWeCameraView.getWidth(), mWeCameraView.getHeight());
+
             mRecordButton.setText(R.string.stop_record);
             mIndicatorLayout.setVisibility(View.VISIBLE);
             mUIHandler.post(mUpdateRecordInfoRunnable);
         } else {
             mWeVideoRecorder.stopEncode();
             mWeVideoRecorder = null;
+
             mIndicatorLayout.setVisibility(View.GONE);
             mRecordButton.setText(R.string.start_record);
+
+            resumeUserDirection();
         }
+    }
+
+    private void fixCurrentDirection() {
+        int currentAngle = getRotationAngle();
+        switch (currentAngle) {
+            case Surface.ROTATION_90:
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                break;
+
+            case Surface.ROTATION_270:
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
+                break;
+
+            case Surface.ROTATION_0:
+            default:
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                break;
+        }
+    }
+
+    private void resumeUserDirection() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+    }
+
+    private int getRotationAngle() {
+        if (mDisplay == null) {
+            mDisplay = ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+        }
+        return mDisplay.getRotation();
     }
 
     private Runnable mUpdateRecordInfoRunnable = new Runnable() {
@@ -298,6 +341,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
     @Override
     public void onScreenTextureChanged(int textureId) {
+        LogUtils.d(TAG, "onScreenTextureChanged:" + textureId);
         if (mWeVideoRecorder != null) {
             mWeVideoRecorder.setExternalTextureId(textureId);
         }
