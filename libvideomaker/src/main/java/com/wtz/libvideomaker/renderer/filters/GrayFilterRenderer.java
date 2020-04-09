@@ -24,12 +24,12 @@ public class GrayFilterRenderer extends FilterRenderer {
 
     @Override
     protected int getVertexShaderResId() {
-        return R.raw.vertex_offscreen_shader;
+        return R.raw.we_vidmk_vertex_offscreen_shader;
     }
 
     @Override
     protected int getFragmentShaderResId() {
-        return R.raw.fragment_gray_texture2d_shader;
+        return R.raw.we_vidmk_fragment_gray_texture2d_shader;
     }
 
     @Override

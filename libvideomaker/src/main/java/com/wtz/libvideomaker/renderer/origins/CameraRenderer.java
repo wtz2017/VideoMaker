@@ -140,8 +140,8 @@ public class CameraRenderer extends BaseRender implements SurfaceTexture.OnFrame
 
     private void initShaderProgram() {
         // 创建着色器程序
-        String vertexSource = ShaderUtil.readRawText(mContext, R.raw.vertex_offscreen_shader);
-        String fragmentSource = ShaderUtil.readRawText(mContext, R.raw.fragment_camera_oes_shader);
+        String vertexSource = ShaderUtil.readRawText(mContext, R.raw.we_vidmk_vertex_offscreen_shader);
+        String fragmentSource = ShaderUtil.readRawText(mContext, R.raw.we_vidmk_fragment_camera_oes_shader);
         int[] shaderIDs = ShaderUtil.createAndLinkProgram(vertexSource, fragmentSource);
         mVertexShaderHandle = shaderIDs[0];
         mFragmentShaderHandle = shaderIDs[1];

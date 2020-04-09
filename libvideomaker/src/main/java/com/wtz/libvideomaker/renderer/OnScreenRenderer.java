@@ -112,8 +112,8 @@ public class OnScreenRenderer extends BaseRender {
 
     private void initShaderProgram() {
         // 创建着色器程序
-        String vertexSource = ShaderUtil.readRawText(mContext, R.raw.vertex_onscreen_shader);
-        String fragmentSource = ShaderUtil.readRawText(mContext, R.raw.fragment_normal_texture2d_shader);
+        String vertexSource = ShaderUtil.readRawText(mContext, R.raw.we_vidmk_vertex_onscreen_shader);
+        String fragmentSource = ShaderUtil.readRawText(mContext, R.raw.we_vidmk_fragment_normal_texture2d_shader);
         int[] shaderIDs = ShaderUtil.createAndLinkProgram(vertexSource, fragmentSource);
         mVertexShaderHandle = shaderIDs[0];
         mFragmentShaderHandle = shaderIDs[1];
