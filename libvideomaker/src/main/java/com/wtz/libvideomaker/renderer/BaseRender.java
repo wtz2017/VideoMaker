@@ -1,10 +1,13 @@
 package com.wtz.libvideomaker.renderer;
 
+import android.opengl.GLES20;
+
 import com.wtz.libvideomaker.egl.WeGLRenderer;
 
 public abstract class BaseRender implements WeGLRenderer {
 
     protected boolean canClearScreenOnDraw = true;
+    protected boolean forceClearScreenOnce = false;
 
     public void setClearScreenOnDraw(boolean clearScreen) {
         canClearScreenOnDraw = clearScreen;
@@ -28,6 +31,12 @@ public abstract class BaseRender implements WeGLRenderer {
                 0f, 0f,
                 1f, 0f
         };
+    }
+
+    @Override
+    public void onSurfaceChanged(int width, int height) {
+        GLES20.glViewport(0, 0, width, height);
+        forceClearScreenOnce = true;
     }
 
 }

@@ -315,9 +315,9 @@ public class WatermarkRenderer extends BaseRender {
     @Override
     public void onSurfaceChanged(int width, int height) {
         LogUtils.d(TAG, "onSurfaceChanged " + width + "x" + height);
+        super.onSurfaceChanged(width, height);
         mSurfaceWidth = width;
         mSurfaceHeight = height;
-        GLES20.glViewport(0, 0, width, height);
         changeDefaultPositionMatrix(width, height);
         bindTextureToFBO(width, height);
         if (mImageMarkBitmap != null) {
@@ -590,9 +590,12 @@ public class WatermarkRenderer extends BaseRender {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
 
         // 清屏
-        if (canClearScreenOnDraw) {
+        if (canClearScreenOnDraw || forceClearScreenOnce) {
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
             GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+            if (forceClearScreenOnce) {
+                forceClearScreenOnce = false;
+            }
         }
 
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分

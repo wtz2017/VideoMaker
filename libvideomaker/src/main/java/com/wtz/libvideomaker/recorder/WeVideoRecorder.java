@@ -20,6 +20,8 @@ public class WeVideoRecorder extends WeGLVideoEncoder implements WeGLRenderer {
     private static final String TAG = WeVideoRecorder.class.getSimpleName();
 
     private Context mContext;
+    private boolean isReleased;
+
     private OnScreenRenderer mOnScreenRenderer;
     private static final int RENDER_FPS = 30;//大部分摄像头最高30fps，FPS过高会导致部分低端机型渲染闪屏
 
@@ -85,15 +87,27 @@ public class WeVideoRecorder extends WeGLVideoEncoder implements WeGLRenderer {
     @Override
     public void stopEncode() {
         super.stopEncode();
-        // 注意：以 Environment.getExternalStorageDirectory() 为开头的路径才会通知图库扫描有效
-        Uri contentUri = Uri.fromFile(new File(mVideoPathName));
-        Intent i = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, contentUri);
-        mContext.sendBroadcast(i);
+
+        if (mContext != null) {
+            // 注意：以 Environment.getExternalStorageDirectory() 为开头的路径才会通知图库扫描有效
+            Uri contentUri = Uri.fromFile(new File(mVideoPathName));
+            Intent i = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, contentUri);
+            mContext.sendBroadcast(i);
+        }
+    }
+
+    public void release() {
+        isReleased = true;
+        super.release();
+        mContext = null;
     }
 
     @Override
     public void onEGLContextToDestroy() {
         mOnScreenRenderer.onEGLContextToDestroy();
+        if (isReleased) {
+            mOnScreenRenderer = null;
+        }
     }
 
 }

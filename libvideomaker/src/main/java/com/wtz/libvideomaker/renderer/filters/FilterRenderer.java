@@ -224,7 +224,7 @@ public abstract class FilterRenderer extends BaseRender {
     @Override
     public void onSurfaceChanged(int width, int height) {
         LogUtils.d(mTag, "onSurfaceChanged " + width + "x" + height);
-        GLES20.glViewport(0, 0, width, height);
+        super.onSurfaceChanged(width, height);
         changePositionMatrix(width, height);
         bindTextureToFBO(width, height);
     }
@@ -298,9 +298,12 @@ public abstract class FilterRenderer extends BaseRender {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
 
         // 清屏
-        if (canClearScreenOnDraw) {
+        if (canClearScreenOnDraw || forceClearScreenOnce) {
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
             GLES20.glClearColor(0f, 0f, 0f, 1.0f);
+            if (forceClearScreenOnce) {
+                forceClearScreenOnce = false;
+            }
         }
 
         // 使用程序对象 mProgramHandle 作为当前渲染状态的一部分

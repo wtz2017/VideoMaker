@@ -4,6 +4,9 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Message;
 import android.text.TextUtils;
 import android.view.Surface;
 
@@ -12,6 +15,8 @@ import com.wtz.libvideomaker.utils.LogUtils;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.microedition.khronos.egl.EGLContext;
 
@@ -41,12 +46,49 @@ public abstract class WeGLVideoEncoder {
 
     private VideoEncodeThread mVideoEncodeThread;
 
+    private Handler mWorkHandler;
+    private HandlerThread mWorkThread;
+    private boolean isRecording;
+    private boolean isGLThreadExiting;
+    private boolean isVideoEncThreadExiting;
+    private boolean isReleased;;
+    private static final int HANDLE_START_ENCODE = 0;
+    private static final int HANDLE_STOP_ENCODE = 1;
+    private static final int HANDLE_RELEASE = 2;
+    private static final String PARAMS_EGL_CONTEXT = "egl_context";
+    private static final String PARAMS_SAVE_PATH = "save_path";
+    private static final String PARAMS_MIME_TYPE = "mime_type";
+    private static final String PARAMS_VIDEO_WIDTH = "video_width";
+    private static final String PARAMS_VIDEO_HEIGHT = "video_height";
+
     protected abstract WeGLRenderer getRenderer();
 
     protected abstract String getExternalLogTag();
 
     public WeGLVideoEncoder() {
         mExternalTag = getExternalLogTag() + ": ";
+        mWorkThread = new HandlerThread("WeGLVideoEncoder");
+        mWorkThread.start();
+        mWorkHandler = new Handler(mWorkThread.getLooper()) {
+            @Override
+            public void handleMessage(Message msg) {
+                int msgType = msg.what;
+                LogUtils.d(TAG, "mWorkHandler handleMessage: " + msgType);
+                switch (msgType) {
+                    case HANDLE_START_ENCODE:
+                        handleStartEncode(msg);
+                        break;
+
+                    case HANDLE_STOP_ENCODE:
+                        handleStopEncode();
+                        break;
+
+                    case HANDLE_RELEASE:
+                        handleRelease();
+                        break;
+                }
+            }
+        };
         LogUtils.w(TAG, mExternalTag + "WeGLVideoEncoder created");
     }
 
@@ -76,7 +118,42 @@ public abstract class WeGLVideoEncoder {
     }
 
     public void startEncode(EGLContext context, String savePath, String mimeType, int videoWidth, int videoHeight) {
-        LogUtils.w(TAG, mExternalTag + "startEncode mimeType=" + mimeType +
+        if (isReleased) {
+            LogUtils.e(TAG, mExternalTag + "startEncode but this encoder is already released!");
+            return;
+        }
+        mWorkHandler.removeMessages(HANDLE_START_ENCODE);// 以最新设置为准
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(PARAMS_EGL_CONTEXT, context);
+        params.put(PARAMS_SAVE_PATH, savePath);
+        params.put(PARAMS_MIME_TYPE, mimeType);
+        params.put(PARAMS_VIDEO_WIDTH, videoWidth);
+        params.put(PARAMS_VIDEO_HEIGHT, videoHeight);
+
+        Message msg = mWorkHandler.obtainMessage(HANDLE_START_ENCODE);
+        msg.obj = params;
+        mWorkHandler.sendMessage(msg);
+    }
+
+    private void handleStartEncode(Message msg) {
+        if (isRecording) {
+            LogUtils.e(TAG,"Can't start encoder again: it's already recording!");
+            return;
+        }
+        isRecording = true;
+
+        Map<String, Object> params = (Map<String, Object>) msg.obj;
+        EGLContext context = (EGLContext) params.get(PARAMS_EGL_CONTEXT);
+        String savePath = (String) params.get(PARAMS_SAVE_PATH);
+        String mimeType = (String) params.get(PARAMS_MIME_TYPE);
+        int videoWidth = (int) params.get(PARAMS_VIDEO_WIDTH);
+        int videoHeight = (int) params.get(PARAMS_VIDEO_HEIGHT);
+        handleStartEncode(context, savePath, mimeType, videoWidth, videoHeight);
+    }
+
+    private void handleStartEncode(EGLContext context, String savePath, String mimeType, int videoWidth, int videoHeight) {
+        LogUtils.w(TAG, mExternalTag + "handleStartEncode mimeType=" + mimeType +
                 ", video size=" + videoWidth + "x" + videoHeight);
         this.mShareContext = context;
         if (mShareContext == null) {
@@ -87,31 +164,29 @@ public abstract class WeGLVideoEncoder {
             throw new IllegalArgumentException("startEncode video arguments is illegal");
         }
 
-        synchronized (WeGLVideoEncoder.this) {// 与退出销毁资源同步
-            mRenderer = getRenderer();
-            if (mRenderer == null) {
-                throw new RuntimeException("The render from getRenderer can't be null!");
-            }
-
-            if (!initMuxer(savePath)) {
-                return;
-            }
-
-            if (!initVideoEncoder(mimeType, videoWidth, videoHeight)) {
-                return;
-            }
-
-            mWeakReference = new WeakReference<>(this);
-            mGLThread = new GLThread(mWeakReference, getExternalLogTag());
-            if (mRenderFps > 0) {
-                mGLThread.setRenderFps(mRenderFps);
-            }
-            mGLThread.onWindowResize(videoWidth, videoHeight);
-            mGLThread.start();
-
-            mVideoEncodeThread = new VideoEncodeThread(mWeakReference);
-            mVideoEncodeThread.start();
+        mRenderer = getRenderer();
+        if (mRenderer == null) {
+            throw new RuntimeException("The render from getRenderer can't be null!");
         }
+
+        if (!initMuxer(savePath)) {
+            return;
+        }
+
+        if (!initVideoEncoder(mimeType, videoWidth, videoHeight)) {
+            return;
+        }
+
+        mWeakReference = new WeakReference<>(this);
+        mGLThread = new GLThread(mWeakReference, getExternalLogTag());
+        if (mRenderFps > 0) {
+            mGLThread.setRenderFps(mRenderFps);
+        }
+        mGLThread.onWindowResize(videoWidth, videoHeight);
+        mGLThread.start();
+
+        mVideoEncodeThread = new VideoEncodeThread(mWeakReference);
+        mVideoEncodeThread.start();
     }
 
     private boolean initMuxer(String savePath) {
@@ -148,6 +223,9 @@ public abstract class WeGLVideoEncoder {
 
     public void onVideoSizeChanged(int width, int height) {
         LogUtils.w(TAG, mExternalTag + "onVideoSizeChanged " + width + "x" + height);
+        if (mGLThread == null) {
+            return;
+        }
         mGLThread.onWindowResize(width, height);
         mGLThread.requestRender();
     }
@@ -160,44 +238,64 @@ public abstract class WeGLVideoEncoder {
     }
 
     public void stopEncode() {
-        LogUtils.w(TAG, mExternalTag + "stopEncode");
+        if (isReleased) {
+            LogUtils.e(TAG, mExternalTag + "stopEncode but this encoder is already released!");
+            return;
+        }
+        mWorkHandler.removeMessages(HANDLE_START_ENCODE);
+        Message msg = mWorkHandler.obtainMessage(HANDLE_STOP_ENCODE);
+        mWorkHandler.sendMessage(msg);
+    }
+
+    private void handleStopEncode() {
+        LogUtils.w(TAG, mExternalTag + "handleStopEncode");
+        if (!isRecording) {
+            LogUtils.w(TAG,"No need to stop encoder again: it's already stopped!");
+            return;
+        }
+        isRecording = false;
+
         if (mGLThread != null) {
+            isGLThreadExiting = true;
             mGLThread.requestExit(new WeGLThread.OnExitedListener() {
                 @Override
                 public void onExited(WeGLThread glThread) {
                     LogUtils.w(TAG, mExternalTag + "mGLThread onExited: " + glThread.hashCode());
-                    synchronized (WeGLVideoEncoder.this) {// 与初始化创建资源同步
-                        if (mGLThread != null && glThread != mGLThread) {
-                            // 新的线程已经创建
-                            return;
-                        }
-                        releaseOnGLThreadExit();
-                    }
+                    isGLThreadExiting = false;
                 }
             });
-        } else {
-            releaseOnGLThreadExit();
+            while (isGLThreadExiting) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
+        releaseOnGLThreadExit();
+
         if (mVideoEncodeThread != null) {
+            isVideoEncThreadExiting = true;
             mVideoEncodeThread.requestExit(new OnThreadExitedListener() {
                 @Override
                 public void onExited(Thread thread) {
                     LogUtils.w(TAG, mExternalTag + "mVideoEncodeThread onExited: " + thread.hashCode());
-                    synchronized (WeGLVideoEncoder.this) {// 与初始化创建资源同步
-                        if (mVideoEncodeThread != null && mVideoEncodeThread != thread) {
-                            // 新的线程已经创建
-                            return;
-                        }
-                        releaseOnVideoEncThreadExit();
-                    }
+                    isVideoEncThreadExiting = false;
                 }
             });
-        } else {
-            releaseOnVideoEncThreadExit();
+            while (isVideoEncThreadExiting) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
+        releaseOnVideoEncThreadExit();
     }
 
     private void releaseOnGLThreadExit() {
+        LogUtils.w(TAG, mExternalTag + "releaseOnGLThreadExit");
         mShareContext = null;
         mRenderer = null;
         mGLThread = null;
@@ -205,6 +303,7 @@ public abstract class WeGLVideoEncoder {
     }
 
     private void releaseOnVideoEncThreadExit() {
+        LogUtils.w(TAG, mExternalTag + "releaseOnVideoEncThreadExit");
         if (mVideoEncoder != null) {
             try {
                 mVideoEncoder.stop();
@@ -225,6 +324,30 @@ public abstract class WeGLVideoEncoder {
         }
         mVideoFormat = null;
         mVideoBufInfo = null;
+    }
+
+    public void release() {
+        if (isReleased) {
+            return;
+        }
+        // 首先置总的标志位，阻止消息队列的正常消费
+        isReleased = true;
+
+        // 然后抛到工作线程做释放工作
+        mWorkHandler.removeCallbacksAndMessages(null);
+        Message msg = mWorkHandler.obtainMessage(HANDLE_RELEASE);
+        mWorkHandler.sendMessage(msg);
+    }
+
+    private void handleRelease() {
+        handleStopEncode();
+
+        mWorkHandler.removeCallbacksAndMessages(null);
+        try {
+            mWorkThread.quit();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static String exceptionPrefix() {

@@ -54,6 +54,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
     private WeCameraView mWeCameraView;
     private WeVideoRecorder mWeVideoRecorder;
+    private boolean isRecording;
 
     private Button mChangeCameraButton;
     private Button mRecordButton;
@@ -107,6 +108,8 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
         File savePath = new File(Environment.getExternalStorageDirectory(), "WePhotos");
         mSaveVideoDir = savePath.getAbsolutePath();
+        mWeVideoRecorder = new WeVideoRecorder(this);
+        mWeVideoRecorder.setSaveVideoDir(mSaveVideoDir);
 
         mChangeCameraButton = findViewById(R.id.btn_change_camera);
         mChangeCameraButton.setOnClickListener(this);
@@ -239,27 +242,34 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     }
 
     private void record() {
-        if (mWeVideoRecorder == null) {
-            fixCurrentDirection();
-
-            mWeVideoRecorder = new WeVideoRecorder(this);
-            mWeVideoRecorder.setExternalTextureId(mWeCameraView.getScreenTextureId());
-            mWeVideoRecorder.setSaveVideoDir(mSaveVideoDir);
-            mWeVideoRecorder.startEncode(mWeCameraView.getSharedEGLContext(),
-                    mWeCameraView.getWidth(), mWeCameraView.getHeight());
-
-            mRecordButton.setText(R.string.stop_record);
-            mIndicatorLayout.setVisibility(View.VISIBLE);
-            mUIHandler.post(mUpdateRecordInfoRunnable);
+        if (isRecording) {
+            stopEncode();
         } else {
-            mWeVideoRecorder.stopEncode();
-            mWeVideoRecorder = null;
-
-            mIndicatorLayout.setVisibility(View.GONE);
-            mRecordButton.setText(R.string.start_record);
-
-            resumeUserDirection();
+            startEncode();
         }
+    }
+
+    private void startEncode() {
+        isRecording = true;
+        fixCurrentDirection();
+
+        mWeVideoRecorder.setExternalTextureId(mWeCameraView.getScreenTextureId());
+        mWeVideoRecorder.startEncode(mWeCameraView.getSharedEGLContext(),
+                mWeCameraView.getWidth(), mWeCameraView.getHeight());
+
+        mRecordButton.setText(R.string.stop_record);
+        mIndicatorLayout.setVisibility(View.VISIBLE);
+        mUIHandler.post(mUpdateRecordInfoRunnable);
+    }
+
+    private void stopEncode() {
+        isRecording = false;
+        mWeVideoRecorder.stopEncode();
+
+        mIndicatorLayout.setVisibility(View.GONE);
+        mRecordButton.setText(R.string.start_record);
+
+        resumeUserDirection();
     }
 
     private void fixCurrentDirection() {
@@ -356,12 +366,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     @Override
     protected void onStop() {
         LogUtils.d(TAG, "onStop");
-        if (mWeVideoRecorder != null) {
-            mWeVideoRecorder.stopEncode();
-            mWeVideoRecorder = null;
-            mIndicatorLayout.setVisibility(View.GONE);
-            mRecordButton.setText(R.string.start_record);
-        }
+        stopEncode();
         super.onStop();
     }
 
@@ -369,8 +374,13 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     protected void onDestroy() {
         LogUtils.d(TAG, "onDestroy");
         mContentView.getViewTreeObserver().removeOnGlobalLayoutListener(mOnGlobalLayoutListener);
-        mWeCameraView.release();
         mUIHandler.removeCallbacksAndMessages(null);
+
+        mWeVideoRecorder.release();
+        mWeVideoRecorder = null;
+        mWeCameraView.release();
+        mWeCameraView = null;
+
         if (mPermissionHandler != null) {
             mPermissionHandler.destroy();
             mPermissionHandler = null;
