@@ -35,6 +35,23 @@ public class DateTimeUtil {
         String secondString = formatTime(String.valueOf(second));
         return hourString + ":" + minuteString + ":" + secondString;
     }
+    /**
+     * 把剩余毫秒数转化成“分:秒”字符串
+     *
+     * @param timeMilli
+     * @return
+     */
+    public static String changeRemainTimeToMs(long timeMilli) {
+        if (timeMilli == 0) {
+            return "00:00";
+        }
+        int totalSeconds = Math.round((float) timeMilli / 1000);// 毫秒数转秒数，毫秒部分四舍五入
+        int second = totalSeconds % 60;// 秒数除60得分钟数再取余得秒数
+        int minute = totalSeconds / 60;// 秒数除1个60得分钟数
+        String minuteString = formatTime(String.valueOf(minute));
+        String secondString = formatTime(String.valueOf(second));
+        return minuteString + ":" + secondString;
+    }
 
     private static String formatTime(String original) {
         if (original != null && original.length() < 2) {

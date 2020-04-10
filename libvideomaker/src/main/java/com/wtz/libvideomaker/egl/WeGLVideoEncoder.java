@@ -27,16 +27,24 @@ public abstract class WeGLVideoEncoder {
 
     private WeakReference<WeGLVideoEncoder> mWeakReference;
 
+    // 渲染线程
+    private WeGLThread mGLThread;
+    private boolean isGLThreadExiting;
     private EGLContext mShareContext;
     private Surface mSurface;
-
-    private WeGLThread mGLThread;
     private WeGLRenderer mRenderer;
     private int mRenderMode = WeGLRenderer.RENDERMODE_CONTINUOUSLY;
     private int mRenderFps = 0;
 
+    // 媒体封装器
     private MediaMuxer mMediaMuxer;
+    private boolean isVideoTrackAdded;
+    private boolean isAudioTrackAdded;
+    private boolean isMuxerStarted;
 
+    // 视频编码线程
+    private MediaEncodeThread mVideoEncodeThread;
+    private boolean isVideoEncThreadExiting;
     private static final int MEDIA_FRAME_RATE = 30;// 一般摄像头预览最大 30 帧每秒
     private static final int I_FRAME_INTERVAL = 1;// 设置关键帧间隔为 1 秒
     private MediaCodec mVideoEncoder;
@@ -44,14 +52,27 @@ public abstract class WeGLVideoEncoder {
     private MediaCodec.BufferInfo mVideoBufInfo;
     private long mEncodeTimeMills;
 
-    private VideoEncodeThread mVideoEncodeThread;
+    // 音频编码线程
+    private MediaEncodeThread mAudioEncodeThread;
+    private boolean isAudioEncThreadExiting;
+    private boolean needEncodeAudio;
+    private boolean isAudioEncoderStarted;
+    private int mAudioSampleRate;
+    private int mAudioChannelNums;
+    private int mAudioBitsPerSample;
+    private int mAudioBytesPerSecond;
+    private int mPcmMaxBytesPerCallback;
+    private long mAudioPts;
+    private MediaCodec mAudioEncoder;
+    private MediaFormat mAudioFormat;
+    private MediaCodec.BufferInfo mAudioBufInfo;
 
+    // 接口调度线程
     private Handler mWorkHandler;
     private HandlerThread mWorkThread;
     private boolean isRecording;
-    private boolean isGLThreadExiting;
-    private boolean isVideoEncThreadExiting;
-    private boolean isReleased;;
+    private boolean isReleased;
+    ;
     private static final int HANDLE_START_ENCODE = 0;
     private static final int HANDLE_STOP_ENCODE = 1;
     private static final int HANDLE_RELEASE = 2;
@@ -60,6 +81,9 @@ public abstract class WeGLVideoEncoder {
     private static final String PARAMS_MIME_TYPE = "mime_type";
     private static final String PARAMS_VIDEO_WIDTH = "video_width";
     private static final String PARAMS_VIDEO_HEIGHT = "video_height";
+    private static final String PARAMS_SAMPLE_RATE = "sample_rate";
+    private static final String PARAMS_CHANNEL_NUMS = "channel_nums";
+    private static final String PARAMS_BITS_PER_SAMPLE = "bits_per_sample";
 
     protected abstract WeGLRenderer getRenderer();
 
@@ -117,6 +141,14 @@ public abstract class WeGLVideoEncoder {
         mGLThread.requestRender();
     }
 
+    public void setAudioParams(int sampleRate, int channelNums, int bitsPerSample, int pcmMaxBytesPerCallback) {
+        this.mAudioSampleRate = sampleRate;
+        this.mAudioChannelNums = channelNums;
+        this.mAudioBitsPerSample = bitsPerSample;
+        mAudioBytesPerSecond = mAudioSampleRate * mAudioChannelNums * mAudioBitsPerSample / 8;
+        this.mPcmMaxBytesPerCallback = pcmMaxBytesPerCallback;
+    }
+
     public void startEncode(EGLContext context, String savePath, String mimeType, int videoWidth, int videoHeight) {
         if (isReleased) {
             LogUtils.e(TAG, mExternalTag + "startEncode but this encoder is already released!");
@@ -130,6 +162,10 @@ public abstract class WeGLVideoEncoder {
         params.put(PARAMS_MIME_TYPE, mimeType);
         params.put(PARAMS_VIDEO_WIDTH, videoWidth);
         params.put(PARAMS_VIDEO_HEIGHT, videoHeight);
+        // 音频参数没有不影响视频录制，也就是无音视频
+        params.put(PARAMS_SAMPLE_RATE, mAudioSampleRate);
+        params.put(PARAMS_CHANNEL_NUMS, mAudioChannelNums);
+        params.put(PARAMS_BITS_PER_SAMPLE, mAudioBitsPerSample);
 
         Message msg = mWorkHandler.obtainMessage(HANDLE_START_ENCODE);
         msg.obj = params;
@@ -138,7 +174,7 @@ public abstract class WeGLVideoEncoder {
 
     private void handleStartEncode(Message msg) {
         if (isRecording) {
-            LogUtils.e(TAG,"Can't start encoder again: it's already recording!");
+            LogUtils.e(TAG, "Can't start encoder again: it's already recording!");
             return;
         }
         isRecording = true;
@@ -149,10 +185,16 @@ public abstract class WeGLVideoEncoder {
         String mimeType = (String) params.get(PARAMS_MIME_TYPE);
         int videoWidth = (int) params.get(PARAMS_VIDEO_WIDTH);
         int videoHeight = (int) params.get(PARAMS_VIDEO_HEIGHT);
-        handleStartEncode(context, savePath, mimeType, videoWidth, videoHeight);
+        int sampleRate = (int) params.get(PARAMS_SAMPLE_RATE);
+        int channelNums = (int) params.get(PARAMS_CHANNEL_NUMS);
+        int bitsPerSample = (int) params.get(PARAMS_BITS_PER_SAMPLE);
+        handleStartEncode(context, savePath, mimeType, videoWidth, videoHeight,
+                sampleRate, channelNums, bitsPerSample);
     }
 
-    private void handleStartEncode(EGLContext context, String savePath, String mimeType, int videoWidth, int videoHeight) {
+    private void handleStartEncode(EGLContext context, String savePath, String mimeType,
+                                   int videoWidth, int videoHeight, int sampleRate,
+                                   int channelNums, int bitsPerSample) {
         LogUtils.w(TAG, mExternalTag + "handleStartEncode mimeType=" + mimeType +
                 ", video size=" + videoWidth + "x" + videoHeight);
         this.mShareContext = context;
@@ -177,6 +219,9 @@ public abstract class WeGLVideoEncoder {
             return;
         }
 
+        needEncodeAudio = initAudioEncoder();
+        LogUtils.w(TAG, "needEncodeAudio " + needEncodeAudio);
+
         mWeakReference = new WeakReference<>(this);
         mGLThread = new GLThread(mWeakReference, getExternalLogTag());
         if (mRenderFps > 0) {
@@ -185,8 +230,13 @@ public abstract class WeGLVideoEncoder {
         mGLThread.onWindowResize(videoWidth, videoHeight);
         mGLThread.start();
 
-        mVideoEncodeThread = new VideoEncodeThread(mWeakReference);
+        mVideoEncodeThread = new MediaEncodeThread(mWeakReference, MediaEncodeThread.TYPE_VIDEO, "VideoEncodeThread");
         mVideoEncodeThread.start();
+
+        if (needEncodeAudio) {
+            mAudioEncodeThread = new MediaEncodeThread(mWeakReference, MediaEncodeThread.TYPE_AUDIO, "AudioEncodeThread");
+            mAudioEncodeThread.start();
+        }
     }
 
     private boolean initMuxer(String savePath) {
@@ -218,6 +268,35 @@ public abstract class WeGLVideoEncoder {
         }
 
         mVideoBufInfo = new MediaCodec.BufferInfo();
+        mEncodeTimeMills = 0;
+        return true;
+    }
+
+    private boolean initAudioEncoder() {
+        if (mAudioSampleRate == 0 || mAudioChannelNums == 0
+                || mAudioBitsPerSample == 0 || mPcmMaxBytesPerCallback == 0) {
+            LogUtils.e(TAG, mExternalTag + "initAudioEncoder but audio params is not set!");
+            return false;
+        }
+
+        String mimeType = MediaFormat.MIMETYPE_AUDIO_AAC;
+        mAudioFormat = MediaFormat.createAudioFormat(mimeType, mAudioSampleRate, mAudioChannelNums);
+        mAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, 96000);
+        mAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        mAudioFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, mPcmMaxBytesPerCallback);
+
+        try {
+            mAudioEncoder = MediaCodec.createEncoderByType(mimeType);
+            mAudioEncoder.configure(mAudioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        } catch (IOException e) {
+            e.printStackTrace();
+            mAudioFormat = null;
+            mAudioEncoder = null;
+            return false;
+        }
+
+        mAudioBufInfo = new MediaCodec.BufferInfo();
+        mAudioPts = 0;
         return true;
     }
 
@@ -250,11 +329,12 @@ public abstract class WeGLVideoEncoder {
     private void handleStopEncode() {
         LogUtils.w(TAG, mExternalTag + "handleStopEncode");
         if (!isRecording) {
-            LogUtils.w(TAG,"No need to stop encoder again: it's already stopped!");
+            LogUtils.w(TAG, "No need to stop encoder again: it's already stopped!");
             return;
         }
         isRecording = false;
 
+        isGLThreadExiting = false;
         if (mGLThread != null) {
             isGLThreadExiting = true;
             mGLThread.requestExit(new WeGLThread.OnExitedListener() {
@@ -264,16 +344,9 @@ public abstract class WeGLVideoEncoder {
                     isGLThreadExiting = false;
                 }
             });
-            while (isGLThreadExiting) {
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
         }
-        releaseOnGLThreadExit();
 
+        isVideoEncThreadExiting = false;
         if (mVideoEncodeThread != null) {
             isVideoEncThreadExiting = true;
             mVideoEncodeThread.requestExit(new OnThreadExitedListener() {
@@ -283,15 +356,29 @@ public abstract class WeGLVideoEncoder {
                     isVideoEncThreadExiting = false;
                 }
             });
-            while (isVideoEncThreadExiting) {
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+        }
+
+        isAudioEncThreadExiting = false;
+        if (mAudioEncodeThread != null) {
+            isAudioEncThreadExiting = true;
+            mAudioEncodeThread.requestExit(new OnThreadExitedListener() {
+                @Override
+                public void onExited(Thread thread) {
+                    LogUtils.w(TAG, mExternalTag + "mAudioEncodeThread onExited: " + thread.hashCode());
+                    isAudioEncThreadExiting = false;
                 }
+            });
+        }
+
+        while (isGLThreadExiting || isVideoEncThreadExiting || isAudioEncThreadExiting) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
-        releaseOnVideoEncThreadExit();
+        releaseOnGLThreadExit();
+        releaseOnMediaEncThreadExit();
     }
 
     private void releaseOnGLThreadExit() {
@@ -302,8 +389,11 @@ public abstract class WeGLVideoEncoder {
         mSurface = null;
     }
 
-    private void releaseOnVideoEncThreadExit() {
-        LogUtils.w(TAG, mExternalTag + "releaseOnVideoEncThreadExit");
+    private void releaseOnMediaEncThreadExit() {
+        LogUtils.w(TAG, mExternalTag + "releaseOnMediaEncThreadExit");
+        mVideoEncodeThread = null;
+        mAudioEncodeThread = null;
+
         if (mVideoEncoder != null) {
             try {
                 mVideoEncoder.stop();
@@ -312,6 +402,15 @@ public abstract class WeGLVideoEncoder {
                 e.printStackTrace();
             }
             mVideoEncoder = null;
+        }
+        if (mAudioEncoder != null) {
+            try {
+                mAudioEncoder.stop();
+                mAudioEncoder.release();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            mAudioEncoder = null;
         }
         if (mMediaMuxer != null) {
             try {
@@ -324,6 +423,20 @@ public abstract class WeGLVideoEncoder {
         }
         mVideoFormat = null;
         mVideoBufInfo = null;
+        mAudioFormat = null;
+        mAudioBufInfo = null;
+
+        needEncodeAudio = false;
+        isAudioEncoderStarted = false;
+        isMuxerStarted = false;
+        isVideoTrackAdded = false;
+        isAudioTrackAdded = false;
+
+        mAudioSampleRate = 0;
+        mAudioChannelNums = 0;
+        mAudioBitsPerSample = 0;
+        mPcmMaxBytesPerCallback = 0;
+        mEncodeTimeMills = 0;
     }
 
     public void release() {
@@ -413,18 +526,22 @@ public abstract class WeGLVideoEncoder {
     }
 
     /**
-     * 视频编码线程
+     * 音视频编码线程
      */
-    static class VideoEncodeThread extends Thread {
-        private static final String TAG = "VideoEncodeThread";
+    static class MediaEncodeThread extends Thread {
+        private String mTag;
+
+        public static final int TYPE_VIDEO = 0;
+        public static final int TYPE_AUDIO = 1;
+        private int mMediaType;
 
         private WeakReference<WeGLVideoEncoder> mWeakReference;
-        private MediaCodec mVideoEncoder;
-        private MediaCodec.BufferInfo mVideoBufInfo;
+        private MediaCodec mEncoder;
+        private MediaCodec.BufferInfo mBufInfo;
         private MediaMuxer mMediaMuxer;
 
         private int mOutputBufIndex;
-        private int mVideoTrackIndex = -1;
+        private int mTrackIndex = -1;
         private long mStartPts = 0;
 
         private boolean isMuxerStarted;
@@ -433,74 +550,114 @@ public abstract class WeGLVideoEncoder {
 
         private OnThreadExitedListener mOnExitedListener;
 
-        public VideoEncodeThread(WeakReference<WeGLVideoEncoder> weakReference) {
+        public MediaEncodeThread(WeakReference<WeGLVideoEncoder> weakReference, int mediaType, String tag) {
             this.mWeakReference = weakReference;
-            mVideoEncoder = mWeakReference.get().mVideoEncoder;
-            mVideoBufInfo = mWeakReference.get().mVideoBufInfo;
+            this.mMediaType = mediaType;
+            this.mTag = tag;
+
             mMediaMuxer = mWeakReference.get().mMediaMuxer;
+            if (mMediaType == TYPE_VIDEO) {
+                mEncoder = mWeakReference.get().mVideoEncoder;
+                mBufInfo = mWeakReference.get().mVideoBufInfo;
+            } else {
+                mEncoder = mWeakReference.get().mAudioEncoder;
+                mBufInfo = mWeakReference.get().mAudioBufInfo;
+            }
         }
 
         @Override
         public void run() {
-            setName(TAG + " " + android.os.Process.myTid());
-            LogUtils.w(TAG, "Video encode thread starting tid=" + android.os.Process.myTid());
+            setName(mTag + " " + android.os.Process.myTid());
+            LogUtils.w(mTag, "encode thread starting tid=" + android.os.Process.myTid());
             try {
                 guardedRun();
             } catch (Throwable e) {
-                LogUtils.e(TAG, "catch exception: " + e.toString());
+                LogUtils.e(mTag, "catch exception: " + e.toString());
                 if (isShouldExit) {
-                    LogUtils.e(TAG, "Because isShouldExit = true, so ignore this exception");
+                    LogUtils.e(mTag, "Because isShouldExit = true, so ignore this exception");
                 } else {
                     throw e;
                 }
             } finally {
                 release();
             }
-            LogUtils.w(TAG, "Video encode thread end tid=" + android.os.Process.myTid());
+            LogUtils.w(mTag, "encode thread end tid=" + android.os.Process.myTid());
         }
 
         private void guardedRun() {
-            mVideoEncoder.start();
+            mEncoder.start();
+            if (mMediaType == TYPE_AUDIO) {
+                WeGLVideoEncoder master = mWeakReference.get();
+                if (master == null) {
+                    LogUtils.e(mTag, "WeGLVideoEncoder got from mWeakReference is null, so exit!");
+                    return;
+                }
+                master.isAudioEncoderStarted = true;
+            }
             while (!isShouldExit) {
                 WeGLVideoEncoder master = mWeakReference.get();
                 if (master == null) {
                     // 主类已被回收，因为某种原因没有来得及置退出标志，这里就直接退出线程
-                    LogUtils.e(TAG, "WeGLVideoEncoder got from mWeakReference is null, so exit!");
+                    LogUtils.e(mTag, "WeGLVideoEncoder got from mWeakReference is null, so exit!");
                     return;
                 }
 
-                if (mVideoEncoder == null || mVideoBufInfo == null || mMediaMuxer == null) {
-                    LogUtils.e(TAG, "mVideoEncoder or mVideoBufInfo or mMediaMuxer got from mWeakReference is null!");
+                if (mEncoder == null || mBufInfo == null || mMediaMuxer == null) {
+                    LogUtils.e(mTag, "mEncoder or mBufInfo or mMediaMuxer got from mWeakReference is null!");
                     return;
                 }
 
                 try {
-                    mOutputBufIndex = mVideoEncoder.dequeueOutputBuffer(mVideoBufInfo, 0);
+                    mOutputBufIndex = mEncoder.dequeueOutputBuffer(mBufInfo, 0);
                     if (mOutputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                        LogUtils.e(TAG, "mOutputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED");
-                        mVideoTrackIndex = mMediaMuxer.addTrack(mVideoEncoder.getOutputFormat());
-                        if (!isMuxerStarted) {
-                            // MediaMuxer.start() is called after addTrack and before writeSampleData
-                            mMediaMuxer.start();
-                            isMuxerStarted = true;
+                        LogUtils.w(mTag, "mOutputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED");
+                        mTrackIndex = mMediaMuxer.addTrack(mEncoder.getOutputFormat());
+                        synchronized (mMediaMuxer) {
+                            boolean otherTrackAdded;
+                            boolean canStartMuxer = false;
+                            if (mMediaType == TYPE_VIDEO) {
+                                master.isVideoTrackAdded = true;
+                                otherTrackAdded = master.isAudioTrackAdded;
+                                canStartMuxer = !master.isMuxerStarted
+                                        && (!master.needEncodeAudio || otherTrackAdded);
+                            } else {
+                                master.isAudioTrackAdded = true;
+                                otherTrackAdded = master.isVideoTrackAdded;
+                                canStartMuxer = !master.isMuxerStarted && otherTrackAdded;
+                            }
+                            LogUtils.w(mTag, "canStartMuxer " + canStartMuxer);
+                            if (canStartMuxer) {
+                                // MediaMuxer.start() is called after addTrack and before writeSampleData
+                                mMediaMuxer.start();
+                                isMuxerStarted = true;
+                                master.isMuxerStarted = true;
+                            }
                         }
                     } else {
                         while (mOutputBufIndex >= 0) {
-                            ByteBuffer outBuffer = mVideoEncoder.getOutputBuffers()[mOutputBufIndex];
-                            outBuffer.position(mVideoBufInfo.offset);
-                            outBuffer.limit(mVideoBufInfo.offset + mVideoBufInfo.size);
+                            ByteBuffer outBuffer = mEncoder.getOutputBuffers()[mOutputBufIndex];
+                            outBuffer.position(mBufInfo.offset);
+                            outBuffer.limit(mBufInfo.offset + mBufInfo.size);
 
+                            if (!isMuxerStarted) {
+                                synchronized (mMediaMuxer) {
+                                    isMuxerStarted = master.isMuxerStarted;
+                                }
+                            }
                             if (isMuxerStarted) {
                                 if (mStartPts == 0) {
-                                    mStartPts = mVideoBufInfo.presentationTimeUs;
+                                    mStartPts = mBufInfo.presentationTimeUs;
                                 }
-                                mVideoBufInfo.presentationTimeUs = mVideoBufInfo.presentationTimeUs - mStartPts;
-                                mMediaMuxer.writeSampleData(mVideoTrackIndex, outBuffer, mVideoBufInfo);
-                                master.mEncodeTimeMills = mVideoBufInfo.presentationTimeUs / 1000;
+                                mBufInfo.presentationTimeUs = mBufInfo.presentationTimeUs - mStartPts;
+                                mMediaMuxer.writeSampleData(mTrackIndex, outBuffer, mBufInfo);
+                                if (mMediaType == TYPE_VIDEO) {
+                                    // 只针对一个主 track 写时间就够了
+                                    master.mEncodeTimeMills = mBufInfo.presentationTimeUs / 1000;
+                                }
                             }
 
-                            mVideoEncoder.releaseOutputBuffer(mOutputBufIndex, false);
-                            mOutputBufIndex = mVideoEncoder.dequeueOutputBuffer(mVideoBufInfo, 0);
+                            mEncoder.releaseOutputBuffer(mOutputBufIndex, false);
+                            mOutputBufIndex = mEncoder.dequeueOutputBuffer(mBufInfo, 0);
                         }
                     }
                 } catch (Exception e) {
@@ -521,9 +678,9 @@ public abstract class WeGLVideoEncoder {
         }
 
         private void release() {
-            // mVideoEncoder 系列在这里只置空，具体回收交给外部主类释放
-            mVideoEncoder = null;
-            mVideoBufInfo = null;
+            // mEncoder 系列在这里只置空，具体回收交给外部主类释放
+            mEncoder = null;
+            mBufInfo = null;
             mMediaMuxer = null;
             mWeakReference = null;
 
@@ -534,5 +691,297 @@ public abstract class WeGLVideoEncoder {
         }
 
     }
+
+    public void onAudioPCMDataCall(byte[] pcmData, int size) {
+        if (!needEncodeAudio || !isRecording || mAudioEncoder == null || !isAudioEncoderStarted
+                || pcmData == null || size <= 0) {
+            return;
+        }
+        try {
+            // 获取输入 buffer，不超时等待
+            int inputBufferIndex = mAudioEncoder.dequeueInputBuffer(0);
+            if (inputBufferIndex < 0) {
+                LogUtils.e(TAG, "onAudioPCMDataCall dequeueInputBuffer failed ret=" + inputBufferIndex);
+                return;
+            }
+
+            // 成功获取输入 buffer后，填入要处理的数据
+            ByteBuffer inputBuffer = mAudioEncoder.getInputBuffers()[inputBufferIndex];
+            inputBuffer.clear();
+            inputBuffer.put(pcmData);
+
+            // 提交数据并释放输入 buffer
+            mAudioPts += (long) (1.0f * size / mAudioBytesPerSecond * 1000000);
+            mAudioEncoder.queueInputBuffer(
+                    inputBufferIndex, 0, size, mAudioPts, 0);
+        } catch (Exception e) {
+            LogUtils.e(TAG, "onAudioPCMDataCall exception: " + e.toString());
+            e.printStackTrace();
+        }
+    }
+
+//    /**
+//     * 视频编码线程
+//     */
+//    static class VideoEncodeThread extends Thread {
+//        private static final String TAG = "VideoEncodeThread";
+//
+//        private WeakReference<WeGLVideoEncoder> mWeakReference;
+//        private MediaCodec mVideoEncoder;
+//        private MediaCodec.BufferInfo mVideoBufInfo;
+//        private MediaMuxer mMediaMuxer;
+//
+//        private int mOutputBufIndex;
+//        private int mVideoTrackIndex = -1;
+//        private long mStartPts = 0;
+//
+//        private boolean isMuxerStarted;
+//        private boolean isShouldExit;
+//        private boolean isExited;
+//
+//        private OnThreadExitedListener mOnExitedListener;
+//
+//        public VideoEncodeThread(WeakReference<WeGLVideoEncoder> weakReference) {
+//            this.mWeakReference = weakReference;
+//            mVideoEncoder = mWeakReference.get().mVideoEncoder;
+//            mVideoBufInfo = mWeakReference.get().mVideoBufInfo;
+//            mMediaMuxer = mWeakReference.get().mMediaMuxer;
+//        }
+//
+//        @Override
+//        public void run() {
+//            setName(TAG + " " + android.os.Process.myTid());
+//            LogUtils.w(TAG, "Video encode thread starting tid=" + android.os.Process.myTid());
+//            try {
+//                guardedRun();
+//            } catch (Throwable e) {
+//                LogUtils.e(TAG, "catch exception: " + e.toString());
+//                if (isShouldExit) {
+//                    LogUtils.e(TAG, "Because isShouldExit = true, so ignore this exception");
+//                } else {
+//                    throw e;
+//                }
+//            } finally {
+//                release();
+//            }
+//            LogUtils.w(TAG, "Video encode thread end tid=" + android.os.Process.myTid());
+//        }
+//
+//        private void guardedRun() {
+//            mVideoEncoder.start();
+//            while (!isShouldExit) {
+//                WeGLVideoEncoder master = mWeakReference.get();
+//                if (master == null) {
+//                    // 主类已被回收，因为某种原因没有来得及置退出标志，这里就直接退出线程
+//                    LogUtils.e(TAG, "WeGLVideoEncoder got from mWeakReference is null, so exit!");
+//                    return;
+//                }
+//
+//                if (mVideoEncoder == null || mVideoBufInfo == null || mMediaMuxer == null) {
+//                    LogUtils.e(TAG, "mVideoEncoder or mVideoBufInfo or mMediaMuxer got from mWeakReference is null!");
+//                    return;
+//                }
+//
+//                try {
+//                    mOutputBufIndex = mVideoEncoder.dequeueOutputBuffer(mVideoBufInfo, 0);
+//                    if (mOutputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+//                        LogUtils.e(TAG, "mOutputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED");
+//                        mVideoTrackIndex = mMediaMuxer.addTrack(mVideoEncoder.getOutputFormat());
+//                        synchronized (mMediaMuxer) {
+//                            master.isVideoTrackAdded = true;
+//                            if (!master.isMuxerStarted && master.isAudioTrackAdded) {
+//                                // MediaMuxer.start() is called after addTrack and before writeSampleData
+//                                mMediaMuxer.start();
+//                                isMuxerStarted = true;
+//                                master.isMuxerStarted = true;
+//                            }
+//                        }
+//                    } else {
+//                        while (mOutputBufIndex >= 0) {
+//                            ByteBuffer outBuffer = mVideoEncoder.getOutputBuffers()[mOutputBufIndex];
+//                            outBuffer.position(mVideoBufInfo.offset);
+//                            outBuffer.limit(mVideoBufInfo.offset + mVideoBufInfo.size);
+//
+//                            if (!isMuxerStarted) {
+//                                synchronized (mMediaMuxer) {
+//                                    isMuxerStarted = master.isMuxerStarted;
+//                                }
+//                            }
+//                            if (isMuxerStarted) {
+//                                if (mStartPts == 0) {
+//                                    mStartPts = mVideoBufInfo.presentationTimeUs;
+//                                }
+//                                mVideoBufInfo.presentationTimeUs = mVideoBufInfo.presentationTimeUs - mStartPts;
+//                                mMediaMuxer.writeSampleData(mVideoTrackIndex, outBuffer, mVideoBufInfo);
+//                                master.mEncodeTimeMills = mVideoBufInfo.presentationTimeUs / 1000;
+//                            }
+//
+//                            mVideoEncoder.releaseOutputBuffer(mOutputBufIndex, false);
+//                            mOutputBufIndex = mVideoEncoder.dequeueOutputBuffer(mVideoBufInfo, 0);
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//
+//        public void requestExit(OnThreadExitedListener listener) {
+//            this.mOnExitedListener = listener;
+//            if (isExited) {
+//                if (mOnExitedListener != null) {
+//                    mOnExitedListener.onExited(this);
+//                }
+//            } else {
+//                isShouldExit = true;
+//            }
+//        }
+//
+//        private void release() {
+//            // mVideoEncoder 系列在这里只置空，具体回收交给外部主类释放
+//            mVideoEncoder = null;
+//            mVideoBufInfo = null;
+//            mMediaMuxer = null;
+//            mWeakReference = null;
+//
+//            isExited = true;
+//            if (mOnExitedListener != null) {
+//                mOnExitedListener.onExited(this);
+//            }
+//        }
+//
+//    }
+//
+//
+//    /**
+//     * 音频编码线程
+//     */
+//    static class AudioEncodeThread extends Thread {
+//        private static final String TAG = "AudioEncodeThread";
+//
+//        private WeakReference<WeGLVideoEncoder> mWeakReference;
+//        private MediaCodec mAudioEncoder;
+//        private MediaCodec.BufferInfo mAudioBufInfo;
+//        private MediaMuxer mMediaMuxer;
+//
+//        private int mOutputBufIndex;
+//        private int mAudioTrackIndex = -1;
+//        private long mStartPts = 0;
+//
+//        private boolean isMuxerStarted;
+//        private boolean isShouldExit;
+//        private boolean isExited;
+//
+//        private OnThreadExitedListener mOnExitedListener;
+//
+//        public AudioEncodeThread(WeakReference<WeGLVideoEncoder> weakReference) {
+//            this.mWeakReference = weakReference;
+//            mAudioEncoder = mWeakReference.get().mVideoEncoder;
+//            mAudioBufInfo = mWeakReference.get().mVideoBufInfo;
+//            mMediaMuxer = mWeakReference.get().mMediaMuxer;
+//        }
+//
+//        @Override
+//        public void run() {
+//            setName(TAG + " " + android.os.Process.myTid());
+//            LogUtils.w(TAG, "Audio encode thread starting tid=" + android.os.Process.myTid());
+//            try {
+//                guardedRun();
+//            } catch (Throwable e) {
+//                LogUtils.e(TAG, "catch exception: " + e.toString());
+//                if (isShouldExit) {
+//                    LogUtils.e(TAG, "Because isShouldExit = true, so ignore this exception");
+//                } else {
+//                    throw e;
+//                }
+//            } finally {
+//                release();
+//            }
+//            LogUtils.w(TAG, "Audio encode thread end tid=" + android.os.Process.myTid());
+//        }
+//
+//        private void guardedRun() {
+//            mAudioEncoder.start();
+//            while (!isShouldExit) {
+//                WeGLVideoEncoder master = mWeakReference.get();
+//                if (master == null) {
+//                    // 主类已被回收，因为某种原因没有来得及置退出标志，这里就直接退出线程
+//                    LogUtils.e(TAG, "WeGLVideoEncoder got from mWeakReference is null, so exit!");
+//                    return;
+//                }
+//
+//                if (mAudioEncoder == null || mAudioBufInfo == null || mMediaMuxer == null) {
+//                    LogUtils.e(TAG, "mVideoEncoder or mVideoBufInfo or mMediaMuxer got from mWeakReference is null!");
+//                    return;
+//                }
+//
+//                try {
+//                    mOutputBufIndex = mAudioEncoder.dequeueOutputBuffer(mAudioBufInfo, 0);
+//                    if (mOutputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+//                        LogUtils.e(TAG, "mOutputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED");
+//                        mAudioTrackIndex = mMediaMuxer.addTrack(mAudioEncoder.getOutputFormat());
+//                        synchronized (mMediaMuxer) {
+//                            master.isAudioTrackAdded = true;
+//                            if (!master.isMuxerStarted && master.isVideoTrackAdded) {
+//                                // MediaMuxer.start() is called after addTrack and before writeSampleData
+//                                mMediaMuxer.start();
+//                                isMuxerStarted = true;
+//                                master.isMuxerStarted = true;
+//                            }
+//                        }
+//                    } else {
+//                        while (mOutputBufIndex >= 0) {
+//                            ByteBuffer outBuffer = mAudioEncoder.getOutputBuffers()[mOutputBufIndex];
+//                            outBuffer.position(mAudioBufInfo.offset);
+//                            outBuffer.limit(mAudioBufInfo.offset + mAudioBufInfo.size);
+//
+//                            if (!isMuxerStarted) {
+//                                synchronized (mMediaMuxer) {
+//                                    isMuxerStarted = master.isMuxerStarted;
+//                                }
+//                            }
+//                            if (isMuxerStarted) {
+//                                if (mStartPts == 0) {
+//                                    mStartPts = mAudioBufInfo.presentationTimeUs;
+//                                }
+//                                mAudioBufInfo.presentationTimeUs = mAudioBufInfo.presentationTimeUs - mStartPts;
+//                                mMediaMuxer.writeSampleData(mAudioTrackIndex, outBuffer, mAudioBufInfo);
+//                            }
+//
+//                            mAudioEncoder.releaseOutputBuffer(mOutputBufIndex, false);
+//                            mOutputBufIndex = mAudioEncoder.dequeueOutputBuffer(mAudioBufInfo, 0);
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//
+//        public void requestExit(OnThreadExitedListener listener) {
+//            this.mOnExitedListener = listener;
+//            if (isExited) {
+//                if (mOnExitedListener != null) {
+//                    mOnExitedListener.onExited(this);
+//                }
+//            } else {
+//                isShouldExit = true;
+//            }
+//        }
+//
+//        private void release() {
+//            // mAudioEncoder 系列在这里只置空，具体回收交给外部主类释放
+//            mAudioEncoder = null;
+//            mAudioBufInfo = null;
+//            mMediaMuxer = null;
+//            mWeakReference = null;
+//
+//            isExited = true;
+//            if (mOnExitedListener != null) {
+//                mOnExitedListener.onExited(this);
+//            }
+//        }
+//
+//    }
 
 }

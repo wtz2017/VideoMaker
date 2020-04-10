@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -31,14 +31,104 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="5dp"
-            android:text="00:00:00"
+            android:text="@string/zero_time_hms"
             android:textColor="#ff0000"
             android:textSize="@dimen/sp_16" />
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/ll_select_music_layout"
         android:layout_width="match_parent"
         android:layout_height="60dp"
+        android:layout_above="@+id/ll_control_music_layout"
+        android:layout_gravity="bottom"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:layout_marginBottom="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_select_music"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginRight="5dp"
+            android:background="#80ffffff"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="@string/select_music" />
+
+        <TextView
+            android:id="@+id/tv_music_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#ffff00" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_control_music_layout"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_above="@+id/ll_camera_control"
+        android:layout_gravity="bottom"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:layout_marginBottom="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_music_play_control"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginRight="5dp"
+            android:background="#80ffffff"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="@string/play_music" />
+
+        <TextView
+            android:id="@+id/tv_music_play_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="5dp"
+            android:text="@string/zero_time_ms"
+            android:textColor="#ffff00" />
+
+        <SeekBar
+            android:id="@+id/seek_bar_music"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginRight="5dp"
+            android:layout_weight="1"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:maxHeight="20dp"
+            android:minHeight="20dp"
+            android:progress="0"
+            android:progressDrawable="@drawable/seekbar_style"
+            android:secondaryProgress="0"
+            android:thumb="@drawable/seekbar_thumb"
+            android:thumbOffset="0dp" />
+
+        <TextView
+            android:id="@+id/tv_music_total_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/zero_time_ms"
+            android:textColor="#ffff00" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_camera_control"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_alignParentBottom="true"
         android:layout_gravity="bottom"
         android:layout_marginLeft="5dp"
         android:layout_marginRight="5dp"
@@ -55,7 +145,7 @@
             android:background="#80ffffff"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
-            android:text="切换\n摄像头" />
+            android:text="@string/switch_camera" />
 
         <RadioGroup
             android:id="@+id/rg_render_type"
@@ -71,21 +161,21 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:checked="true"
-                android:text="正常" />
+                android:text="@string/normal" />
 
             <RadioButton
                 android:id="@+id/rb_gray"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="灰度" />
+                android:text="@string/gray" />
 
             <RadioButton
                 android:id="@+id/rb_color_reverse"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="反色" />
+                android:text="@string/color_reverse" />
 
         </RadioGroup>
 
@@ -102,4 +192,4 @@
 
     </LinearLayout>
 
-</FrameLayout>
+</RelativeLayout>

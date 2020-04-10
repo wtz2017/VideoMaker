@@ -88,7 +88,7 @@ public class WeVideoRecorder extends WeGLVideoEncoder implements WeGLRenderer {
     public void stopEncode() {
         super.stopEncode();
 
-        if (mContext != null) {
+        if (mContext != null && mVideoPathName != null) {
             // 注意：以 Environment.getExternalStorageDirectory() 为开头的路径才会通知图库扫描有效
             Uri contentUri = Uri.fromFile(new File(mVideoPathName));
             Intent i = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, contentUri);

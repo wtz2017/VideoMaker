@@ -31,6 +31,8 @@
         <activity
             android:name=".VideoRecordActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />
+        <activity
+            android:name=".utils.FileChooser"/>
     </application>
 
 </manifest>

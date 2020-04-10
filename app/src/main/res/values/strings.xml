@@ -24,4 +24,13 @@
     <string name="start_record">开始\n录制</string>
     <string name="stop_record">停止\n录制</string>
     <string name="take_photo">拍照</string>
+    <string name="select_music">选择\n音乐</string>
+    <string name="play_music">播放\n音乐</string>
+    <string name="pause_music">暂停\n音乐</string>
+    <string name="switch_camera">切换\n摄像头</string>
+    <string name="normal">正常</string>
+    <string name="gray">灰度</string>
+    <string name="color_reverse">反色</string>
+    <string name="zero_time_ms">00:00</string>
+    <string name="zero_time_hms">00:00:00</string>
 </resources>
