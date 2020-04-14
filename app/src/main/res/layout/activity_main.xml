@@ -35,4 +35,11 @@
         android:layout_marginTop="20dp"
         android:text="视频录制" />
 
+    <Button
+        android:id="@+id/btn_image_video"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="图像合成视频" />
+
 </LinearLayout>

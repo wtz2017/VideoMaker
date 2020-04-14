@@ -2,20 +2,24 @@ package com.wtz.libvideomaker.renderer.origins;
 
 import android.content.Context;
 import android.opengl.Matrix;
+import android.text.TextUtils;
 
 public class SingleImgRenderer extends ImgRenderer {
 
     private static final String TAG = SingleImgRenderer.class.getSimpleName();
 
-    private int mSourceImageResId;
+    private int mSurfaceWidth;
+    private int mSurfaceHeight;
     private int mSourceImageWidth;
     private int mSourceImageHeight;
 
+    private int[] mResIds;
+    private String[] mPaths;
+
     private float[] mPositionMatrix;// 用来保存位置变换矩阵数值的数组
 
-    public SingleImgRenderer(Context mContext, int sourceImageResId) {
+    public SingleImgRenderer(Context mContext) {
         super(mContext, TAG);
-        this.mSourceImageResId = sourceImageResId;
     }
 
     @Override
@@ -43,14 +47,37 @@ public class SingleImgRenderer extends ImgRenderer {
     }
 
     @Override
-    protected int[] getSourceImageResIds() {
-        return new int[]{mSourceImageResId};
+    public void onSurfaceChanged(int width, int height) {
+        super.onSurfaceChanged(width, height);
+        this.mSurfaceWidth = width;
+        this.mSurfaceHeight = height;
+    }
+
+    public void setImageResource(int resId) {
+        if (mResIds == null) {
+            mResIds = new int[]{resId};
+        } else {
+            mResIds[0] = resId;
+        }
+        setImageResources(mResIds);
+    }
+
+    public void setImagePath(String path) {
+        if (TextUtils.isEmpty(path)) return;
+
+        if (mPaths == null) {
+            mPaths = new String[]{path};
+        } else {
+            mPaths[0] = path;
+        }
+        setImagePaths(mPaths);
     }
 
     @Override
-    protected void onSourceImageLoaded(int[][] mSourceTextureInfos) {
-        mSourceImageWidth = mSourceTextureInfos[0][1];
-        mSourceImageHeight = mSourceTextureInfos[0][2];
+    protected void onSourceImageLoaded(int[][] mSourceBitmapInfos) {
+        mSourceImageWidth = mSourceBitmapInfos[0][0];
+        mSourceImageHeight = mSourceBitmapInfos[0][1];
+        changePositionMatrix(mSurfaceWidth, mSurfaceHeight);
     }
 
     @Override
@@ -58,25 +85,27 @@ public class SingleImgRenderer extends ImgRenderer {
         // 初始化单位矩阵
         Matrix.setIdentityM(mPositionMatrix, 0);
 
-        // 设置正交投影
-        float imageRatio = mSourceImageWidth * 1.0f / mSourceImageHeight;
-        float containerRatio = width * 1.0f / height;
-        if (containerRatio >= imageRatio) {
-            // 容器比图像更宽一些，横向居中展示
-            float imageNormalWidth = 1 - (-1);
-            float containerNormalWidth = width / (height * imageRatio) * imageNormalWidth;
-            Matrix.orthoM(mPositionMatrix, 0,
-                    -containerNormalWidth / 2, containerNormalWidth / 2,
-                    -1f, 1f,
-                    -1f, 1f);
-        } else {
-            // 容器比图像更高一些，纵向居中展示
-            float imageNormalHeight = 1 - (-1);
-            float containerNormalHeight = height / (width / imageRatio) * imageNormalHeight;
-            Matrix.orthoM(mPositionMatrix, 0,
-                    -1, 1,
-                    -containerNormalHeight / 2, containerNormalHeight / 2,
-                    -1f, 1f);
+        if (mSourceImageWidth > 0 && mSourceImageHeight > 0) {
+            // 设置正交投影
+            float imageRatio = mSourceImageWidth * 1.0f / mSourceImageHeight;
+            float containerRatio = width * 1.0f / height;
+            if (containerRatio >= imageRatio) {
+                // 容器比图像更宽一些，横向居中展示
+                float imageNormalWidth = 1 - (-1);
+                float containerNormalWidth = width / (height * imageRatio) * imageNormalWidth;
+                Matrix.orthoM(mPositionMatrix, 0,
+                        -containerNormalWidth / 2, containerNormalWidth / 2,
+                        -1f, 1f,
+                        -1f, 1f);
+            } else {
+                // 容器比图像更高一些，纵向居中展示
+                float imageNormalHeight = 1 - (-1);
+                float containerNormalHeight = height / (width / imageRatio) * imageNormalHeight;
+                Matrix.orthoM(mPositionMatrix, 0,
+                        -1, 1,
+                        -containerNormalHeight / 2, containerNormalHeight / 2,
+                        -1f, 1f);
+            }
         }
 
         // 沿 x 轴旋转 180 度

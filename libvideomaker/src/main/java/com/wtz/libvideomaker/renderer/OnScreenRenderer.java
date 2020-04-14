@@ -254,7 +254,7 @@ public class OnScreenRenderer extends BaseRender {
     }
 
     public void takePhoto(String pathName) {
-        Bitmap bitmap = GLBitmapUtils.savePixels(0, 0, mSurfaceWidth, mSurfaceHeight);
+        Bitmap bitmap = GLBitmapUtils.saveGLPixels(0, 0, mSurfaceWidth, mSurfaceHeight);
         GLBitmapUtils.saveBitmap(bitmap, pathName);
 
         // 注意：以 Environment.getExternalStorageDirectory() 为开头的路径才会通知图库扫描有效

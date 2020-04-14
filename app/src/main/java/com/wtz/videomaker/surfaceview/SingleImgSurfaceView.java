@@ -16,7 +16,7 @@ import javax.microedition.khronos.egl.EGLContext;
 public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLRenderer, ImgRenderer.OnSharedTextureChangedListener {
     private static final String TAG = SingleImgSurfaceView.class.getSimpleName();
 
-    private ImgRenderer mImgOffScreenRenderer;
+    private SingleImgRenderer mImgOffScreenRenderer;
     private OnScreenRenderer mOnScreenRenderer;
     private ImgRenderer.OnSharedTextureChangedListener mOnSharedTextureChangedListener;
 
@@ -39,6 +39,10 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLRendere
         this.mOnEGLContextToDestroyListener = listener;
     }
 
+    public void setOnNewImageDrawnListener(ImgRenderer.OnNewImageDrawnListener listener) {
+        mImgOffScreenRenderer.setOnNewImageDrawnListener(listener);
+    }
+
     public SingleImgSurfaceView(Context context) {
         this(context, null);
     }
@@ -51,7 +55,8 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLRendere
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mImgOffScreenRenderer = new SingleImgRenderer(context, R.drawable.carry_up);
+        mImgOffScreenRenderer = new SingleImgRenderer(context);
+        mImgOffScreenRenderer.setImageResource(R.drawable.carry_up);
         mImgOffScreenRenderer.setSharedTextureChangedListener(this);
 
         mOnScreenRenderer = new OnScreenRenderer(context, TAG);
@@ -116,6 +121,12 @@ public class SingleImgSurfaceView extends WeGLSurfaceView implements WeGLRendere
         }
         mImgOffScreenRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
+    }
+
+    public void clearSourceImage() {
+        if (mImgOffScreenRenderer != null) {
+            mImgOffScreenRenderer.clearSourceImage();
+        }
     }
 
 }

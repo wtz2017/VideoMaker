@@ -21,9 +21,13 @@ import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,8 +35,9 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import com.suke.widget.SwitchButton;
 import com.wtz.ffmpegapi.WePlayer;
-import com.wtz.libvideomaker.camera.WeCameraView;
+import com.wtz.libvideomaker.imagevideo.WeImageVideoView;
 import com.wtz.libvideomaker.recorder.WeVideoRecorder;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.filters.WatermarkRenderer;
@@ -40,6 +45,7 @@ import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ScreenUtils;
 import com.wtz.videomaker.utils.DateTimeUtil;
 import com.wtz.videomaker.utils.FileChooser;
+import com.wtz.videomaker.utils.ImageChooser;
 import com.wtz.videomaker.utils.PermissionChecker;
 import com.wtz.videomaker.utils.PermissionHandler;
 
@@ -47,12 +53,13 @@ import java.io.File;
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 
-public class VideoRecordActivity extends AppCompatActivity implements PermissionHandler.PermissionHandleListener,
-        WeCameraView.OnCameraSizeChangedListener, View.OnClickListener, RadioGroup.OnCheckedChangeListener,
-        OnScreenRenderer.ScreenTextureChangeListener, WePlayer.OnPCMDataCallListener {
-    private static final String TAG = VideoRecordActivity.class.getSimpleName();
+public class ImageVideoActivity extends AppCompatActivity implements PermissionHandler.PermissionHandleListener,
+        View.OnClickListener, RadioGroup.OnCheckedChangeListener, OnScreenRenderer.ScreenTextureChangeListener,
+        WePlayer.OnPCMDataCallListener {
+    private static final String TAG = ImageVideoActivity.class.getSimpleName();
 
     private PermissionHandler mPermissionHandler;
 
@@ -62,12 +69,33 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     private int mContentHeight;
     private boolean needHideNav;
 
-    private WeCameraView mWeCameraView;
+    private WeImageVideoView mWeImageVideoView;
+    private Button mSelectImageButton;
+    private Button mLastImageButton;
+    private Button mNextImageButton;
+    private SwitchButton mAutoPlayImageSwitch;
+    private EditText mPlayImageIntevalET;
+    private Spinner mPlayImageIntevalSP;
+    private TextView mCurrentIndexTV;
+    private List<String> mImageList;
+    private int mImageIndex;
+    private boolean isAutoPlayImage = true;
+    private static final String[] TIME_UNIT_ARRAY = new String[]{
+            "秒", "毫秒"
+    };
+    private static final int INDEX_TIME_UNIT_SECOND = 0;
+    private static final int INDEX_TIME_UNIT_MILLIS = 1;
+    private int mTimeUnitIndex = INDEX_TIME_UNIT_SECOND;
+    private static final int DEFAULT_IMAGE_INTERVAL_VALUE = 2;
+    private static final int MIN_IMAGE_INTERVAL_MILLIS = 40;// 小于40毫秒会严重掉帧
+    private int mImageIntervalValue = DEFAULT_IMAGE_INTERVAL_VALUE;
+    private int mImageIntervalMills;
+    // request_code 不能与其它重复
+    private static final int REQUEST_CODE_SELECT_IMG = 1;
+
     private WeVideoRecorder mWeVideoRecorder;
     private String mSaveVideoDir;
     private boolean isRecording;
-    private boolean isBackCamera = true;
-    private Button mChangeCameraButton;
     private Button mRecordButton;
     private View mIndicatorLayout;
     private View mIndicatorLight;
@@ -101,24 +129,25 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
     private static final int MSG_UPDATE_RECORD_INFO = 0;
     private static final int MSG_UPDATE_MUSIC_TIME = 1;
+    private static final int MSG_AUTO_PLAY_IMAGE = 2;
     private static final int UPDATE_RECORD_INFO_INTERVAL = 500;
     private static final int UPDATE_MUSIC_TIME_INTERVAL = 500;
     private WeakHandler mUIHandler = new WeakHandler(this);
 
     static class WeakHandler extends Handler {
-        private final WeakReference<VideoRecordActivity> weakReference;
+        private final WeakReference<ImageVideoActivity> weakReference;
 
         // 为了避免非静态的内部类和匿名内部类隐式持有外部类的引用，改用静态类
         // 又因为内部类是静态类，所以不能直接操作宿主类中的方法了，
         // 于是需要传入宿主类实例的弱引用来操作宿主类中的方法
-        public WeakHandler(VideoRecordActivity host) {
+        public WeakHandler(ImageVideoActivity host) {
             super(Looper.getMainLooper());
             this.weakReference = new WeakReference(host);
         }
 
         @Override
         public void handleMessage(Message msg) {
-            VideoRecordActivity host = weakReference.get();
+            ImageVideoActivity host = weakReference.get();
             if (host == null) {
                 return;
             }
@@ -134,6 +163,11 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
                     removeMessages(MSG_UPDATE_MUSIC_TIME);
                     sendEmptyMessageDelayed(MSG_UPDATE_MUSIC_TIME, UPDATE_MUSIC_TIME_INTERVAL);
                     break;
+                case MSG_AUTO_PLAY_IMAGE:
+                    host.playNextImage();
+                    removeMessages(MSG_AUTO_PLAY_IMAGE);
+                    sendEmptyMessageDelayed(MSG_AUTO_PLAY_IMAGE, host.mImageIntervalMills);
+                    break;
             }
         }
     }
@@ -144,10 +178,10 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         super.onCreate(savedInstanceState);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        ScreenUtils.hideNavigationBar(VideoRecordActivity.this); // 隐藏导航栏
+        ScreenUtils.hideNavigationBar(ImageVideoActivity.this); // 隐藏导航栏
         needHideNav = false;
 
-        setContentView(R.layout.activity_video_record);
+        setContentView(R.layout.activity_image_video);
         initViews();
 
         File savePath = new File(Environment.getExternalStorageDirectory(), "WePhotos");
@@ -156,7 +190,6 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         mWeVideoRecorder.setSaveVideoDir(mSaveVideoDir);
 
         mPermissionHandler = new PermissionHandler(this, this);
-        mPermissionHandler.handleCommonPermission(Manifest.permission.CAMERA);
         mPermissionHandler.handleCommonPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
         LocalBroadcastManager.getInstance(this).registerReceiver(
@@ -168,10 +201,8 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         //监听 content 视图树的变化
         mContentView.getViewTreeObserver().addOnGlobalLayoutListener(mOnGlobalLayoutListener);
 
-        mWeCameraView = findViewById(R.id.we_camera);
-        mWeCameraView.setClearScreenOnDraw(false);// 缓解某些低端机型录制视频时闪屏问题
-        mWeCameraView.setOnCameraSizeChangedListener(this);
-        mWeCameraView.setScreenTextureChangeListener(this);
+        mWeImageVideoView = findViewById(R.id.we_image_video_view);
+        mWeImageVideoView.setScreenTextureChangeListener(this);
         String date = new SimpleDateFormat("yyyy/MM/dd").format(new Date());
         int textColor = Color.parseColor("#FFFF00");
         int textBgColor = Color.parseColor("#33DEDEDE");
@@ -179,13 +210,47 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         int textPaddingX = (int) (getResources().getDimension(TEXT_MARK_PADDING_X) + 0.5f);
         int textPaddingY = (int) (getResources().getDimension(TEXT_MARK_PADDING_Y) + 0.5f);
         int textMargin = (int) (getResources().getDimension(TEXT_MARK_MARIN) + 0.5f);
-        mWeCameraView.setTextMark("WeCamera " + date, textSize, textPaddingX,
+        mWeImageVideoView.setTextMark("WeCamera " + date, textSize, textPaddingX,
                 textPaddingX, textPaddingY, textPaddingY, textColor, textBgColor,
                 mTextMarkCorner, textMargin, textMargin);
 
-        mChangeCameraButton = findViewById(R.id.btn_change_camera);
-        mChangeCameraButton.setOnClickListener(this);
-        ((RadioGroup) findViewById(R.id.rg_render_type)).setOnCheckedChangeListener(this);
+        mSelectImageButton = findViewById(R.id.btn_select_image);
+        mSelectImageButton.setOnClickListener(this);
+        mLastImageButton = findViewById(R.id.btn_last_image);
+        mLastImageButton.setOnClickListener(this);
+        mNextImageButton = findViewById(R.id.btn_next_image);
+        mNextImageButton.setOnClickListener(this);
+
+        mAutoPlayImageSwitch = findViewById(R.id.switch_auto_play_image);
+        mAutoPlayImageSwitch.setChecked(isAutoPlayImage);
+        mAutoPlayImageSwitch.setOnCheckedChangeListener(new SwitchButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(SwitchButton view, boolean isChecked) {
+                LogUtils.d(TAG, "mAutoPlayImageSwitch onCheckedChanged " + isChecked);
+                isAutoPlayImage = isChecked;
+            }
+        });
+
+        mPlayImageIntevalET = findViewById(R.id.et_image_interval);
+        mPlayImageIntevalET.setText("" + DEFAULT_IMAGE_INTERVAL_VALUE);
+
+        mPlayImageIntevalSP = findViewById(R.id.spinner_time_unit);
+        mPlayImageIntevalSP.setSelection(INDEX_TIME_UNIT_SECOND);
+        mPlayImageIntevalSP.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                LogUtils.d(TAG, "mPlayImageIntevalSP onItemSelected " + position);
+                mTimeUnitIndex = position;
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<String>(
+                this, R.layout.item_spinner_time_unit, TIME_UNIT_ARRAY);
+        mPlayImageIntevalSP.setAdapter(spinnerAdapter);
+
         mRecordButton = findViewById(R.id.btn_record);
         mRecordButton.setOnClickListener(this);
 
@@ -230,6 +295,8 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
                 }
             }
         });
+
+        mCurrentIndexTV = findViewById(R.id.tv_current_index);
     }
 
     private ViewTreeObserver.OnGlobalLayoutListener mOnGlobalLayoutListener = new
@@ -255,26 +322,16 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         LogUtils.d(TAG, "onActivityResult requestCode=" + requestCode + ", resultCode=" + resultCode
                 + ", data=" + data);
         mPermissionHandler.handleActivityResult(requestCode);
+        if (resultCode == RESULT_OK && requestCode == REQUEST_CODE_SELECT_IMG) {
+            mImageList = data.getStringArrayListExtra(ImageChooser.KEY_IMAGE_LIST);
+            playFirstImage();
+        }
     }
 
     @Override
     public void onPermissionResult(String permission, PermissionChecker.PermissionState state) {
         LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
-        if (Manifest.permission.CAMERA.equals(permission)) {
-            if (state == PermissionChecker.PermissionState.ALLOWED) {
-                mWeCameraView.startBackCamera();
-                isBackCamera = true;
-            } else if (state == PermissionChecker.PermissionState.UNKNOWN) {
-                LogUtils.e(TAG, "onPermissionResult " + permission + " state is UNKNOWN!");
-                mWeCameraView.startBackCamera();
-                isBackCamera = true;
-            } else if (state == PermissionChecker.PermissionState.USER_NOT_GRANTED) {
-                LogUtils.e(TAG, "onPermissionResult " + permission + " state is USER_NOT_GRANTED!");
-                finish();
-            } else {
-                LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
-            }
-        } else if (Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(permission)) {
+        if (Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(permission)) {
             if (state == PermissionChecker.PermissionState.USER_NOT_GRANTED) {
                 LogUtils.e(TAG, "onPermissionResult " + permission + " state is USER_NOT_GRANTED!");
                 finish();
@@ -297,7 +354,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
             ScreenUtils.hideNavigationBar(this);
             needHideNav = false;
         }
-        mWeCameraView.onActivityResume();
+        mWeImageVideoView.onActivityResume();
     }
 
     @Override
@@ -325,8 +382,16 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
-            case R.id.btn_change_camera:
-                changeCamera();
+            case R.id.btn_select_image:
+                selectImage();
+                break;
+
+            case R.id.btn_last_image:
+                playLastImage();
+                break;
+
+            case R.id.btn_next_image:
+                playNextImage();
                 break;
 
             case R.id.btn_record:
@@ -344,14 +409,47 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         }
     }
 
-    private void changeCamera() {
-        if (isBackCamera) {
-            isBackCamera = false;
-            mWeCameraView.startFrontCamera();
-        } else {
-            isBackCamera = true;
-            mWeCameraView.startBackCamera();
+    private void selectImage() {
+        startActivityForResult(
+                new Intent(ImageVideoActivity.this, ImageChooser.class),
+                REQUEST_CODE_SELECT_IMG);
+    }
+
+    private void startAutoPlayImage() {
+        mUIHandler.sendEmptyMessageDelayed(MSG_AUTO_PLAY_IMAGE, mImageIntervalMills);
+    }
+
+    private void stopAutoPlayImage() {
+        mUIHandler.removeMessages(MSG_AUTO_PLAY_IMAGE);
+    }
+
+    private void playLastImage() {
+        if (mImageList == null || mImageList.size() == 0) return;
+
+        mImageIndex--;
+        if (mImageIndex < 0) {
+            mImageIndex = mImageList.size() - 1;
         }
+        mCurrentIndexTV.setText((mImageIndex + 1) + "/" + mImageList.size());
+        mWeImageVideoView.setImagePath(mImageList.get(mImageIndex));
+    }
+
+    private void playFirstImage() {
+        if (mImageList == null || mImageList.size() == 0) return;
+
+        mCurrentIndexTV.setText((mImageIndex + 1) + "/" + mImageList.size());
+        mWeImageVideoView.setImagePath(mImageList.get(0));
+    }
+
+    private void playNextImage() {
+        if (mImageList == null || mImageList.size() == 0) return;
+
+        mImageIndex++;
+        if (mImageIndex >= mImageList.size()) {
+            mImageIndex = 0;
+        }
+        mCurrentIndexTV.setText((mImageIndex + 1) + "/" + mImageList.size());
+        mWeImageVideoView.setImagePath(mImageList.get(mImageIndex));
     }
 
     private void record() {
@@ -536,8 +634,29 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     }
 
     private void startRecord() {
+        if (mImageList == null) {
+            Toast.makeText(this, R.string.please_select_image, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        parseEditTime(mPlayImageIntevalET.getText().toString());
+        if (mTimeUnitIndex == INDEX_TIME_UNIT_SECOND) {
+            mImageIntervalMills = mImageIntervalValue * 1000;
+        } else if (mTimeUnitIndex == INDEX_TIME_UNIT_MILLIS) {
+            mImageIntervalMills = mImageIntervalValue;
+        }
+        if (mImageIntervalMills < MIN_IMAGE_INTERVAL_MILLIS) {
+            String text = getString(R.string.image_interval_too_small, MIN_IMAGE_INTERVAL_MILLIS);
+            Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         isRecording = true;
         fixCurrentDirection();
+
+        if (isAutoPlayImage) {
+            startAutoPlayImage();
+        }
 
         if (isMusicPrepared) {
             if (!mWePlayer.isPlaying()) {
@@ -556,13 +675,25 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         startUpdateRecordInfo();
     }
 
+    private void parseEditTime(String time) {
+        if (TextUtils.isEmpty(time)) {
+            mImageIntervalValue = 0;
+        } else {
+            try {
+                mImageIntervalValue = (int) (Float.parseFloat(time));
+            } catch (NumberFormatException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private void startVideoEncode(boolean hasAudio) {
         if (hasAudio) {
             mWeVideoRecorder.setAudioParams(mSampleRate, mChannelNums, mBitsPerSample, mPcmMaxBytesPerCallback);
         }
-        mWeVideoRecorder.setExternalTextureId(mWeCameraView.getScreenTextureId());
-        mWeVideoRecorder.startEncode(mWeCameraView.getSharedEGLContext(),
-                mWeCameraView.getWidth(), mWeCameraView.getHeight());
+        mWeVideoRecorder.setExternalTextureId(mWeImageVideoView.getScreenTextureId());
+        mWeVideoRecorder.startEncode(mWeImageVideoView.getSharedEGLContext(),
+                mWeImageVideoView.getWidth(), mWeImageVideoView.getHeight());
     }
 
     @Override
@@ -575,8 +706,9 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     private void stopRecord() {
         isRecording = false;
         startEncodeOnPrepared = false;
-        stopMusic();
         mWeVideoRecorder.stopEncode();
+        stopMusic();
+        stopAutoPlayImage();
 
         stopUpdateRecordInfo();
         mRecordButton.setText(R.string.start_record);
@@ -639,32 +771,21 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     @Override
     public void onCheckedChanged(RadioGroup group, int checkedId) {
         LogUtils.d(TAG, "onCheckedChanged " + checkedId);
-        switch (checkedId) {
-            case R.id.rb_normal:
-                mWeCameraView.setPictureRenderType(WeCameraView.PictureRenderType.NORMAL);
-                break;
-
-            case R.id.rb_gray:
-                mWeCameraView.setPictureRenderType(WeCameraView.PictureRenderType.GRAY);
-                break;
-
-            case R.id.rb_color_reverse:
-                mWeCameraView.setPictureRenderType(WeCameraView.PictureRenderType.COLOR_REVERSE);
-                break;
-        }
+//        switch (checkedId) {
+//            case R.id.rb_normal:
+//                break;
+//
+//            case R.id.rb_gray:
+//                break;
+//
+//            case R.id.rb_color_reverse:
+//                break;
+//        }
     }
 
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        mWeCameraView.onActivityConfigurationChanged(newConfig);
-    }
-
-    @Override
-    public void onCameraSizeChanged(int surfaceWidth, int surfaceHeight, int previewWidth, int previewHeight) {
-        if (mWeVideoRecorder != null) {
-            mWeVideoRecorder.onVideoSizeChanged(surfaceWidth, surfaceHeight);
-        }
     }
 
     @Override
@@ -698,8 +819,8 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
         mWeVideoRecorder.release();
         mWeVideoRecorder = null;
-        mWeCameraView.release();
-        mWeCameraView = null;
+        mWeImageVideoView.release();
+        mWeImageVideoView = null;
 
         if (mWePlayer != null) {
             mWePlayer.release();

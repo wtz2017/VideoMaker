@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <com.wtz.libvideomaker.camera.WeCameraView
-        android:id="@+id/we_camera"
+    <com.wtz.libvideomaker.imagevideo.WeImageVideoView
+        android:id="@+id/we_image_video_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
@@ -56,7 +57,8 @@
             android:background="#80ffffff"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
-            android:text="@string/select_music" />
+            android:text="@string/select_music"
+            android:textSize="@dimen/sp_14" />
 
         <TextView
             android:id="@+id/tv_music_name"
@@ -64,7 +66,8 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="#ffff00" />
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
 
     </LinearLayout>
 
@@ -72,7 +75,7 @@
         android:id="@+id/ll_control_music_layout"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:layout_above="@+id/ll_image_control2"
+        android:layout_above="@+id/ll_image_control1"
         android:layout_gravity="bottom"
         android:layout_marginLeft="5dp"
         android:layout_marginRight="5dp"
@@ -88,7 +91,8 @@
             android:background="#80ffffff"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
-            android:text="@string/play_music" />
+            android:text="@string/play_music"
+            android:textSize="@dimen/sp_14" />
 
         <TextView
             android:id="@+id/tv_music_play_time"
@@ -96,7 +100,8 @@
             android:layout_height="wrap_content"
             android:layout_marginRight="5dp"
             android:text="@string/zero_time_ms"
-            android:textColor="#ffff00" />
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
 
         <SeekBar
             android:id="@+id/seek_bar_music"
@@ -120,7 +125,67 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/zero_time_ms"
-            android:textColor="#ffff00" />
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_image_control1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/ll_image_control2"
+        android:layout_gravity="bottom"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:layout_marginBottom="5dp"
+        android:background="#80ffffff"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="5dp"
+            android:layout_marginRight="5dp"
+            android:text="@string/auto_paly_image"
+            android:textColor="#000000"
+            android:textSize="@dimen/sp_14" />
+
+        <com.suke.widget.SwitchButton
+            android:id="@+id/switch_auto_play_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginRight="10dp"
+            android:gravity="center_vertical"
+            app:sb_checked="true"
+            app:sb_checked_color="#FFB623" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="5dp"
+            android:text="@string/image_play_interval"
+            android:textColor="#000000"
+            android:textSize="@dimen/sp_14" />
+
+        <EditText
+            android:id="@+id/et_image_interval"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:inputType="numberDecimal"
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
+
+        <Spinner
+            android:id="@+id/spinner_time_unit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:popupBackground="#A8A8A8"
+            android:textColor="#000000"
+            android:textSize="@dimen/sp_14" />
 
     </LinearLayout>
 
@@ -137,58 +202,65 @@
         android:orientation="horizontal">
 
         <Button
-            android:id="@+id/btn_change_camera"
+            android:id="@+id/btn_select_image"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginRight="5dp"
-            android:layout_weight="1.5"
+            android:layout_weight="1"
             android:background="#80ffffff"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
-            android:text="@string/switch_camera" />
+            android:text="@string/select_image"
+            android:textSize="@dimen/sp_14" />
 
-        <RadioGroup
-            android:id="@+id/rg_render_type"
+        <Button
+            android:id="@+id/btn_last_image"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="4"
+            android:layout_marginRight="5dp"
+            android:layout_weight="1"
             android:background="#80ffffff"
-            android:orientation="horizontal">
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="@string/last_image"
+            android:textSize="@dimen/sp_14" />
 
-            <RadioButton
-                android:id="@+id/rb_normal"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:checked="true"
-                android:text="@string/normal" />
+        <Button
+            android:id="@+id/btn_next_image"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginRight="5dp"
+            android:layout_weight="1"
+            android:background="#80ffffff"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="@string/next_image"
+            android:textSize="@dimen/sp_14" />
 
-            <RadioButton
-                android:id="@+id/rb_gray"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="@string/gray" />
-
-            <RadioButton
-                android:id="@+id/rb_color_reverse"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="@string/color_reverse" />
-
-        </RadioGroup>
+        <TextView
+            android:id="@+id/tv_current_index"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginRight="5dp"
+            android:layout_weight="0.6"
+            android:background="#80ffffff"
+            android:gravity="center"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="0/0"
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
 
         <Button
             android:id="@+id/btn_record"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_marginLeft="5dp"
             android:layout_weight="1"
             android:background="#80ffffff"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
-            android:text="@string/start_record" />
+            android:text="@string/start_compose"
+            android:textSize="@dimen/sp_14" />
 
     </LinearLayout>
 

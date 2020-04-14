@@ -7,13 +7,10 @@ public class MultiImgRenderer extends ImgRenderer {
 
     private static final String TAG = MultiImgRenderer.class.getSimpleName();
 
-    private int[] mSourceImageResIds;
-
     private float[] mPositionMatrix;// 用来保存位置变换矩阵数值的数组
 
-    public MultiImgRenderer(Context mContext, int[] sourceImageResIds) {
+    public MultiImgRenderer(Context mContext) {
         super(mContext, TAG);
-        this.mSourceImageResIds = sourceImageResIds;
     }
 
     @Override
@@ -87,13 +84,18 @@ public class MultiImgRenderer extends ImgRenderer {
         return 4;
     }
 
-    @Override
-    protected int[] getSourceImageResIds() {
-        return mSourceImageResIds;
+    public void setImageList(int[] resIds) {
+        if (resIds == null || resIds.length == 0) return;
+        setImageResources(resIds);
+    }
+
+    public void setImageList(String[] paths) {
+        if (paths == null || paths.length == 0) return;
+        setImagePaths(paths);
     }
 
     @Override
-    protected void onSourceImageLoaded(int[][] mSourceTextureInfos) {
+    protected void onSourceImageLoaded(int[][] mSourceBitmapInfos) {
     }
 
     @Override

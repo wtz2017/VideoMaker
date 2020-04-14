@@ -14,7 +14,7 @@ import com.wtz.videomaker.R;
 public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLRenderer, ImgRenderer.OnSharedTextureChangedListener {
     private static final String TAG = MultiImgSurfaceView.class.getSimpleName();
 
-    private ImgRenderer mImgOffScreenRenderer;
+    private MultiImgRenderer mImgOffScreenRenderer;
     private OnScreenRenderer mOnScreenRenderer;
 
     public MultiImgSurfaceView(Context context) {
@@ -29,7 +29,8 @@ public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLRenderer
         super(context, attrs, defStyleAttr);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
-        mImgOffScreenRenderer = new MultiImgRenderer(context, new int[] {
+        mImgOffScreenRenderer = new MultiImgRenderer(context);
+        mImgOffScreenRenderer.setImageList(new int[]{
                 R.drawable.tree, R.drawable.sunflower, R.drawable.lotus,
                 R.drawable.carry_up, R.drawable.happy
         });
@@ -80,6 +81,12 @@ public class MultiImgSurfaceView extends WeGLSurfaceView implements WeGLRenderer
         Log.d(TAG, "onEGLContextToDestroy");
         mImgOffScreenRenderer.onEGLContextToDestroy();
         mOnScreenRenderer.onEGLContextToDestroy();
+    }
+
+    public void clearSourceImage() {
+        if (mImgOffScreenRenderer != null) {
+            mImgOffScreenRenderer.clearSourceImage();
+        }
     }
 
 }

@@ -2,12 +2,12 @@ package com.wtz.libvideomaker.renderer.origins;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 
 import com.wtz.libvideomaker.R;
 import com.wtz.libvideomaker.renderer.BaseRender;
+import com.wtz.libvideomaker.utils.GLBitmapUtils;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ShaderUtil;
 import com.wtz.libvideomaker.utils.TextureUtils;
@@ -20,6 +20,9 @@ public abstract class ImgRenderer extends BaseRender {
 
     private Context mContext;
     private String mTag;
+
+    private int mSurfaceWidth;
+    private int mSurfaceHeight;
 
     private int mVertexShaderHandle;
     private int mFragmentShaderHandle;
@@ -76,8 +79,18 @@ public abstract class ImgRenderer extends BaseRender {
     // 用来传入纹理内容到片元着色器的句柄
     private int mTextureUniformHandle;
 
-    // 此渲染器内部处理的源纹理内容句柄
+    // 要展示的图片资源
+    private static final int SOURCE_TYPE_INVALID = 0;
+    private static final int SOURCE_TYPE_RESOURCE = 1;
+    private static final int SOURCE_TYPE_FILE = 2;
+    private int mSourceType = SOURCE_TYPE_INVALID;
+    private int mSourceCount = 0;
+    private int[] mSourceImgResIds;
+    private String[] mSourceImgPaths;
+    // 要展示的图片纹理内容句柄
     private int[] mSourceTextureIds;
+    // 图片资源是否发生变化
+    private boolean sourceImgChanged;
 
     // 准备输出的纹理内容句柄
     private int[] mOutputTextureIds;
@@ -89,6 +102,12 @@ public abstract class ImgRenderer extends BaseRender {
 
     private OnSharedTextureChangedListener mSharedTextureChangedListener;
 
+    public interface OnNewImageDrawnListener {
+        void onNewImageDrawn();
+    }
+
+    private OnNewImageDrawnListener mOnNewImageDrawnListener;
+
     public ImgRenderer(Context mContext, String tag) {
         this.mContext = mContext;
         this.mTag = tag;
@@ -96,6 +115,10 @@ public abstract class ImgRenderer extends BaseRender {
 
     public void setSharedTextureChangedListener(OnSharedTextureChangedListener listener) {
         this.mSharedTextureChangedListener = listener;
+    }
+
+    public void setOnNewImageDrawnListener(OnNewImageDrawnListener listener) {
+        this.mOnNewImageDrawnListener = listener;
     }
 
     public int getSharedTextureId() {
@@ -108,7 +131,7 @@ public abstract class ImgRenderer extends BaseRender {
         initShaderProgram();
         initCoordinatesData();
         initFBO();
-        loadSourceTexture();
+        sourceImgChanged = true;
     }
 
     private void initShaderProgram() {
@@ -217,40 +240,11 @@ public abstract class ImgRenderer extends BaseRender {
         mOldOutputTextureIds = new int[]{0};
     }
 
-    /**
-     * 获取需要绘制的图像资源ID数组
-     */
-    protected abstract int[] getSourceImageResIds();
-
-    private void loadSourceTexture() {
-        int[] resIds = getSourceImageResIds();
-        int[][] mSourceTextureInfos = new int[resIds.length][3];
-        mSourceTextureIds = TextureUtils.genTexture2D(resIds.length);
-
-        for (int i = 0; i < resIds.length; i++) {
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSourceTextureIds[i]);
-            Bitmap bitmap = BitmapFactory.decodeResource(mContext.getResources(), resIds[i]);
-            mSourceTextureInfos[i][0] = mSourceTextureIds[i];
-            mSourceTextureInfos[i][1] = bitmap.getWidth();
-            mSourceTextureInfos[i][2] = bitmap.getHeight();
-            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
-        }
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
-
-        onSourceImageLoaded(mSourceTextureInfos);
-    }
-
-    /**
-     * 返回此渲染器内部加载的源图像资源信息
-     *
-     * @param mSourceTextureInfos 每个图像信息有一个数组，内容为：纹理ID、图像宽、图像高；
-     *                            多个图像的信息组成二维数组
-     */
-    protected abstract void onSourceImageLoaded(int[][] mSourceTextureInfos);
-
     @Override
     public void onSurfaceChanged(int width, int height) {
         LogUtils.d(mTag, "onSurfaceChanged " + width + "x" + height);
+        this.mSurfaceWidth = width;
+        this.mSurfaceHeight = height;
         super.onSurfaceChanged(width, height);
         changePositionMatrix(width, height);
         bindTextureToFBO(width, height);
@@ -304,8 +298,36 @@ public abstract class ImgRenderer extends BaseRender {
         }
     }
 
+    protected synchronized void setImageResources(int[] resIds) {
+        this.mSourceImgResIds = resIds;
+        mSourceCount = resIds.length;
+        mSourceType = SOURCE_TYPE_RESOURCE;
+        sourceImgChanged = true;
+    }
+
+    protected synchronized void setImagePaths(String[] paths) {
+        this.mSourceImgPaths = paths;
+        mSourceCount = paths.length;
+        mSourceType = SOURCE_TYPE_FILE;
+        sourceImgChanged = true;
+    }
+
+    /**
+     * 返回此渲染器内部加载的源图像资源信息
+     *
+     * @param mSourceBitmapInfos 每个图像信息有一个数组，内容为：图像宽、图像高；
+     *                           多个图像的信息组成二维数组
+     */
+    protected abstract void onSourceImageLoaded(int[][] mSourceBitmapInfos);
+
     @Override
     public void onDrawFrame() {
+        boolean changed = checkSourceImgChanged();
+
+        if (mSourceTextureIds == null || mSourceTextureIds.length == 0) {
+            return;
+        }
+
         // 绑定到 FBO 从而离屏渲染
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFBOId);
 
@@ -363,6 +385,53 @@ public abstract class ImgRenderer extends BaseRender {
 
         // 解绑 FBO，从而可以恢复到屏上渲染
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+
+        if (changed && mOnNewImageDrawnListener != null) {
+            mOnNewImageDrawnListener.onNewImageDrawn();
+        }
+    }
+
+    private boolean checkSourceImgChanged() {
+        if (!sourceImgChanged) {
+            return false;
+        }
+
+        int[][] mSourceTextureInfos;
+        synchronized (this) {
+            sourceImgChanged = false;
+
+            if (mSourceTextureIds != null) {
+                GLES20.glDeleteTextures(1, mSourceTextureIds, 0);
+                mSourceTextureIds = null;
+            }
+
+            if (mSourceCount <= 0 || mSourceType == SOURCE_TYPE_INVALID) {
+                return false;
+            }
+
+            mSourceTextureInfos = new int[mSourceCount][2];
+            mSourceTextureIds = TextureUtils.genTexture2D(mSourceCount);
+            for (int i = 0; i < mSourceCount; i++) {
+                Bitmap bitmap;
+                if (mSourceType == SOURCE_TYPE_RESOURCE) {
+                    bitmap = GLBitmapUtils.decodeResource(mContext, mSourceImgResIds[i], mSurfaceWidth, mSurfaceHeight);
+                } else {
+                    bitmap = GLBitmapUtils.decodeFile(mContext, mSourceImgPaths[i], mSurfaceWidth, mSurfaceHeight);
+                }
+                if (bitmap != null) {
+                    mSourceTextureInfos[i][0] = bitmap.getWidth();
+                    mSourceTextureInfos[i][1] = bitmap.getHeight();
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSourceTextureIds[i]);
+                    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+                } else {
+                    LogUtils.e(mTag, "onDrawFrame load bitmap failed!");
+                }
+            }
+        }
+
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+        onSourceImageLoaded(mSourceTextureInfos);
+        return true;
     }
 
     @Override
@@ -404,6 +473,14 @@ public abstract class ImgRenderer extends BaseRender {
             GLES20.glDeleteBuffers(mVBOIds.length, mVBOIds, 0);
             mVBOIds = null;
         }
+    }
+
+    public void clearSourceImage() {
+        mSourceCount = 0;
+        mSourceImgResIds = null;
+        mSourceImgPaths = null;
+        mSourceType = SOURCE_TYPE_INVALID;
+        sourceImgChanged = true;
     }
 
 }

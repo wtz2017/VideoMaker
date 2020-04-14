@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:paddingLeft="@dimen/dp_2"
+    android:paddingTop="@dimen/dp_2"
+    android:paddingRight="@dimen/dp_2"
+    android:paddingBottom="@dimen/dp_2">
+
+    <ImageView
+        android:id="@+id/iv_icon"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+    <TextView
+        android:id="@+id/tv_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_gravity="center"
+        android:background="#5c000000"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:text="name"
+        android:textColor="#ffffff"
+        android:textSize="@dimen/sp_14" />
+
+    <View
+        android:id="@+id/v_cover_dark"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#38000000"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/iv_select_icon"
+        android:layout_width="@dimen/dp_50"
+        android:layout_height="@dimen/dp_50"
+        android:layout_centerInParent="true"
+        android:src="@drawable/icon_select"
+        android:visibility="gone" />
+
+</RelativeLayout>

@@ -21,7 +21,7 @@ import javax.microedition.khronos.egl.EGLContext;
 
 public class MultiSurfaceActivity extends AppCompatActivity
         implements ImgRenderer.OnSharedTextureChangedListener,
-        SingleImgSurfaceView.OnEGLContextCreatedListener, SingleImgSurfaceView.OnEGLContextToDestroyListener {
+        SingleImgSurfaceView.OnEGLContextCreatedListener, SingleImgSurfaceView.OnEGLContextToDestroyListener, ImgRenderer.OnNewImageDrawnListener {
     private static final String TAG = "MultiSurfaceActivity";
 
     private FrameLayout mFiltersLayout1;
@@ -50,6 +50,7 @@ public class MultiSurfaceActivity extends AppCompatActivity
         mMainSurfaceView.setOnEGLContextCreatedListener(this);
         mMainSurfaceView.setOnEGLContextToDestroyListener(this);
         mMainSurfaceView.setSharedTextureChangedListener(this);
+        mMainSurfaceView.setOnNewImageDrawnListener(this);
 
         int sharedTextureId = mMainSurfaceView.getSharedTextureId();
         mGraySurfaceView = new GraySurfaceView(this);
@@ -159,6 +160,19 @@ public class MultiSurfaceActivity extends AppCompatActivity
     }
 
     @Override
+    public void onNewImageDrawn() {
+        if (mGraySurfaceView != null) {
+            mGraySurfaceView.requestRender();
+        }
+        if (mReverseSurfaceView != null) {
+            mReverseSurfaceView.requestRender();
+        }
+        if (mLuminanceSurfaceView != null) {
+            mLuminanceSurfaceView.requestRender();
+        }
+    }
+
+    @Override
     public void onEGLContextToDestroy() {
         LogUtils.w(TAG, "onEGLContextToDestroy");
         mUIHandler.removeCallbacksAndMessages(mAddFilterRunnable);
@@ -185,6 +199,7 @@ public class MultiSurfaceActivity extends AppCompatActivity
     protected void onDestroy() {
         LogUtils.d(TAG, "onDestroy");
         mUIHandler.removeCallbacksAndMessages(null);
+        mMainSurfaceView.clearSourceImage();
         mGraySurfaceView.importEGLContext(null, null);
         mReverseSurfaceView.importEGLContext(null, null);
         mLuminanceSurfaceView.importEGLContext(null, null);

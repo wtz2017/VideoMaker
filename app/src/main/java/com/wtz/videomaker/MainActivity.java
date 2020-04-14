@@ -23,6 +23,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(R.id.btn_single_surface).setOnClickListener(this);
         findViewById(R.id.btn_camera).setOnClickListener(this);
         findViewById(R.id.btn_video_record).setOnClickListener(this);
+        findViewById(R.id.btn_image_video).setOnClickListener(this);
     }
 
     @Override
@@ -39,6 +40,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.btn_video_record:
                 startActivity(new Intent(MainActivity.this, VideoRecordActivity.class));
+                break;
+            case R.id.btn_image_video:
+                startActivity(new Intent(MainActivity.this, ImageVideoActivity.class));
                 break;
         }
     }

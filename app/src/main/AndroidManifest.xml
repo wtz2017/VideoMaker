@@ -32,7 +32,12 @@
             android:name=".VideoRecordActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />
         <activity
+            android:name=".ImageVideoActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize" />
+        <activity
             android:name=".utils.FileChooser"/>
+        <activity
+            android:name=".utils.ImageChooser"/>
     </application>
 
 </manifest>
