@@ -3,6 +3,7 @@
     package="com.wtz.videomaker">
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
@@ -25,6 +26,8 @@
         <activity
             android:name=".SingleSurfaceActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />
+        <activity
+            android:name=".AudioRecordActivity"/>
         <activity
             android:name=".CameraActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />

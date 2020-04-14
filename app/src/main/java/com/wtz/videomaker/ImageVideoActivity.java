@@ -228,6 +228,13 @@ public class ImageVideoActivity extends AppCompatActivity implements PermissionH
             public void onCheckedChanged(SwitchButton view, boolean isChecked) {
                 LogUtils.d(TAG, "mAutoPlayImageSwitch onCheckedChanged " + isChecked);
                 isAutoPlayImage = isChecked;
+                if (isAutoPlayImage) {
+                    if (isRecording) {
+                        startAutoPlayImage();
+                    }
+                } else {
+                    stopAutoPlayImage();
+                }
             }
         });
 
