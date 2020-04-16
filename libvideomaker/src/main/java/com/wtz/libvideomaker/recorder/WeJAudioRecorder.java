@@ -28,9 +28,12 @@ public class WeJAudioRecorder {
     private int mSampleRate;
     private int mChannelConfig;
     private int mEncodingFormat;
+    private int mBitsPerSample;
     private int mBufferSizeInBytes;
     private int mAudioBytesPerSecond;
     private long mRecordTimeMills;
+    private double mAmplitudeAvg = 0;// 当前播放声音振幅平均值，即当前所有采样值大小平均值
+    private double mSoundDecibels = 0;// 当前播放声音分贝值，单位：dB
     private AudioRecord mRecorder;
 
     // 接口调度线程
@@ -44,7 +47,6 @@ public class WeJAudioRecorder {
     private static final int HANDLE_START_RECORD = 1;
     private static final int HANDLE_STOP_RECORD = 2;
     private static final int HANDLE_RELEASE = 3;
-    private static final String PARAMS_EGL_CONTEXT = "egl_context";
 
     public interface OnAudioRecordDataListener {
         void onAudioRecordData(byte[] data, int size);
@@ -155,6 +157,7 @@ public class WeJAudioRecorder {
                 mSampleRate = sampleRateInHz;
                 mChannelConfig = channelConfig;
                 mEncodingFormat = encodingFormat;
+                mBitsPerSample = getBitsPerSample();
                 return recorder;
             }
         } catch (IllegalArgumentException e) {
@@ -255,6 +258,13 @@ public class WeJAudioRecorder {
         return mRecordTimeMills;
     }
 
+    /**
+     * 获取当前播放声音分贝值，单位：dB
+     */
+    public double getSoundDecibels() {
+        return mSoundDecibels;
+    }
+
     public void stopRecord() {
         if (isReleased) {
             LogUtils.e(TAG, "stopRecord but it's already released!");
@@ -318,8 +328,10 @@ public class WeJAudioRecorder {
             mRecorder = null;
         }
 
-        mWeakReference.clear();
-        mWeakReference = null;
+        if (mWeakReference != null) {
+            mWeakReference.clear();
+            mWeakReference = null;
+        }
 
         mWorkHandler.removeCallbacksAndMessages(null);
         try {
@@ -431,15 +443,50 @@ public class WeJAudioRecorder {
                 }
 
                 try {
+                    // 更新时长
                     readSize = mRecorder.read(readBytes, 0, mBufferSizeInBytes);
                     mAudioPts += (long) (1.0f * readSize / mAudioBytesPerSecond * 1000000);
                     master.mRecordTimeMills = mAudioPts / 1000;
+
+                    // 更新声响
+                    updateSoundDecibels(master, readBytes, readSize);
+
                     if (mOnAudioRecordDataListener != null) {
                         mOnAudioRecordDataListener.onAudioRecordData(readBytes, readSize);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+        }
+
+        private void updateSoundDecibels(WeJAudioRecorder master, byte[] pcmData, int size) {
+            double amplitudeSum = 0;// 采样值加和
+            switch (master.mBitsPerSample) {
+                case 8:
+                    for (int i = 0; i < size; i++) {
+                        amplitudeSum += Math.abs(pcmData[i]);// 把这段时间的所有采样值加和
+                    }
+                    // 更新振幅平均值
+                    master.mAmplitudeAvg = amplitudeSum / size;// 除数是 8 位采样点个数
+                    break;
+
+                case 16:
+                    // 针对 16 位编码，要先把两个 8 位转成 16 位的数据再计算振幅
+                    short amplitudeShort = 0;// 16bit 采样值
+                    for (int i = 0; i < size; i += 2) {
+                        amplitudeShort = (short) ((pcmData[i] & 0xff) | ((pcmData[i + 1] & 0xff) << 8));
+                        amplitudeSum += Math.abs(amplitudeShort);// 把这段时间的所有采样值加和
+                    }
+                    // 更新振幅平均值
+                    master.mAmplitudeAvg = amplitudeSum / (size / 2);// 除数是 16 位采样点个数
+                    break;
+            }
+            // 更新分贝值：分贝 = 20 * log10(振幅)
+            if (master.mAmplitudeAvg > 0) {
+                master.mSoundDecibels = 20 * Math.log10(master.mAmplitudeAvg);
+            } else {
+                master.mSoundDecibels = 0;
             }
         }
 

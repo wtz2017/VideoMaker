@@ -15,12 +15,54 @@
         android:text="00:00"
         android:textSize="@dimen/sp_14" />
 
+    <TextView
+        android:id="@+id/tv_record_decibels"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:text="0dB"
+        android:textSize="@dimen/sp_14" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:text="使用 WeJAudioRecorder(base on AudioRecord)"
+        android:textSize="@dimen/sp_14" />
+
     <Button
-        android:id="@+id/btn_record_audio"
+        android:id="@+id/btn_java_record_audio"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:text="开始录音"
+        android:textSize="@dimen/sp_14" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:text="使用 WeNAudioRecorder(base on OpenSL ES)"
+        android:textSize="@dimen/sp_14" />
+
+    <Button
+        android:id="@+id/btn_native_record_audio"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:text="开始录音"
+        android:textSize="@dimen/sp_14" />
+
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:text="使用 WePlayer(base on ffmpeg and OpenSL ES)"
         android:textSize="@dimen/sp_14" />
 
     <Button
@@ -76,5 +118,53 @@
             android:textSize="@dimen/sp_14" />
 
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_pitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="音调" />
+
+    <SeekBar
+        android:id="@+id/seek_bar_pitch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/dp_45"
+        android:layout_marginRight="@dimen/dp_45"
+        android:layout_gravity="center_horizontal"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:maxHeight="20dp"
+        android:minHeight="20dp"
+        android:progress="0"
+        android:progressDrawable="@drawable/seekbar_style"
+        android:secondaryProgress="0"
+        android:thumb="@drawable/seekbar_thumb"
+        android:thumbOffset="0dp" />
+
+    <TextView
+        android:id="@+id/tv_tempo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="音速" />
+
+    <SeekBar
+        android:id="@+id/seek_bar_tempo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/dp_45"
+        android:layout_marginRight="@dimen/dp_45"
+        android:layout_gravity="center_horizontal"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:maxHeight="20dp"
+        android:minHeight="20dp"
+        android:progress="0"
+        android:progressDrawable="@drawable/seekbar_style"
+        android:secondaryProgress="0"
+        android:thumb="@drawable/seekbar_thumb"
+        android:thumbOffset="0dp" />
 
 </LinearLayout>
