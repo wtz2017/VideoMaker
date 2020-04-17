@@ -25,6 +25,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(R.id.btn_camera).setOnClickListener(this);
         findViewById(R.id.btn_video_record).setOnClickListener(this);
         findViewById(R.id.btn_image_video).setOnClickListener(this);
+        findViewById(R.id.btn_mix_audio).setOnClickListener(this);
     }
 
     @Override
@@ -38,6 +39,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.btn_audio_record:
                 startActivity(new Intent(MainActivity.this, AudioRecordActivity.class));
+                break;
+            case R.id.btn_mix_audio:
+                startActivity(new Intent(MainActivity.this, MixAudioActivity.class));
                 break;
             case R.id.btn_camera:
                 startActivity(new Intent(MainActivity.this, CameraActivity.class));

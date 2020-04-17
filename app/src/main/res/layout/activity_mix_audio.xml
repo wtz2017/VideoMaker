@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#6B6B6B"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/ll_select_music_layout"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_above="@+id/ll_control_music_layout"
+        android:layout_gravity="bottom"
+        android:layout_marginLeft="5dp"
+        android:layout_marginTop="@dimen/dp_10"
+        android:layout_marginRight="5dp"
+        android:layout_marginBottom="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_select_music"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginRight="5dp"
+            android:background="#80ffffff"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="@string/select_music"
+            android:textSize="@dimen/sp_14" />
+
+        <TextView
+            android:id="@+id/tv_music_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_control_music_layout"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_above="@+id/ll_image_control1"
+        android:layout_gravity="bottom"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:layout_marginBottom="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_music_play_control"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginRight="5dp"
+            android:background="#80ffffff"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="@string/play_music"
+            android:textSize="@dimen/sp_14" />
+
+        <TextView
+            android:id="@+id/tv_music_play_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="5dp"
+            android:text="@string/zero_time_ms"
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
+
+        <SeekBar
+            android:id="@+id/seek_bar_music"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginRight="5dp"
+            android:layout_weight="1"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:maxHeight="20dp"
+            android:minHeight="20dp"
+            android:progress="0"
+            android:progressDrawable="@drawable/seekbar_style"
+            android:secondaryProgress="0"
+            android:thumb="@drawable/seekbar_thumb"
+            android:thumbOffset="0dp" />
+
+        <TextView
+            android:id="@+id/tv_music_total_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/zero_time_ms"
+            android:textColor="#ffff00"
+            android:textSize="@dimen/sp_14" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btn_record_mix"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/dp_5"
+        android:layout_marginTop="@dimen/dp_10"
+        android:layout_marginRight="@dimen/dp_5"
+        android:background="#80ffffff"
+        android:paddingLeft="@dimen/dp_6"
+        android:paddingRight="@dimen/dp_6"
+        android:text="开始录音混音"
+        android:textSize="@dimen/sp_14" />
+
+    <TextView
+        android:id="@+id/tv_record_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:text="00:00"
+        android:textColor="#ffff00"
+        android:textSize="@dimen/sp_14" />
+</LinearLayout>

@@ -29,6 +29,13 @@
         android:text="音频录制" />
 
     <Button
+        android:id="@+id/btn_mix_audio"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="音频混音" />
+
+    <Button
         android:id="@+id/btn_camera"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

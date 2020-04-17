@@ -29,6 +29,8 @@
         <activity
             android:name=".AudioRecordActivity"/>
         <activity
+            android:name=".MixAudioActivity"/>
+        <activity
             android:name=".CameraActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />
         <activity
