@@ -389,7 +389,6 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
     private WeJAudioRecorder.OnAudioRecordDataListener mJAudioListener = new WeJAudioRecorder.OnAudioRecordDataListener() {
         @Override
         public void onAudioRecordData(byte[] data, int size) {
-            LogUtils.d(TAG, "mWeJAudioRecorder onAudioRecordData size=" + size);
             if (mWAVSaver != null) {
                 mWAVSaver.encode(data, size);
             }
@@ -399,7 +398,6 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
     private WeNAudioRecorder.OnAudioRecordDataListener mNAudioListener = new WeNAudioRecorder.OnAudioRecordDataListener() {
         @Override
         public void onAudioRecordData(byte[] data, int size) {
-            LogUtils.d(TAG, "mNAudioListener onAudioRecordData size=" + size);
             if (mWAVSaver != null) {
                 mWAVSaver.encode(data, size);
             }

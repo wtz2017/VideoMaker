@@ -22,6 +22,7 @@ import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -32,12 +33,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.wtz.ffmpegapi.WePlayer;
+import com.wtz.libnaudiorecord.WeNAudioRecorder;
 import com.wtz.libvideomaker.camera.WeCameraView;
 import com.wtz.libvideomaker.recorder.WeVideoRecorder;
 import com.wtz.libvideomaker.renderer.OnScreenRenderer;
 import com.wtz.libvideomaker.renderer.filters.WatermarkRenderer;
 import com.wtz.libvideomaker.utils.LogUtils;
 import com.wtz.libvideomaker.utils.ScreenUtils;
+import com.wtz.videomaker.utils.AudioUtils;
 import com.wtz.videomaker.utils.DateTimeUtil;
 import com.wtz.videomaker.utils.FileChooser;
 import com.wtz.videomaker.utils.PermissionChecker;
@@ -47,6 +50,7 @@ import java.io.File;
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.concurrent.LinkedBlockingQueue;
 
 
 public class VideoRecordActivity extends AppCompatActivity implements PermissionHandler.PermissionHandleListener,
@@ -64,6 +68,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
     private WeCameraView mWeCameraView;
     private WeVideoRecorder mWeVideoRecorder;
+    private WeNAudioRecorder mWeNAudioRecorder;
     private String mSaveVideoDir;
     private boolean isRecording;
     private boolean isBackCamera = true;
@@ -73,14 +78,34 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     private View mIndicatorLight;
     private TextView mIndicatorTime;
 
+    private static final int AUDIO_SRC_TYPE_MIC = 0;
+    private static final int AUDIO_SRC_TYPE_MUSIC = 1;
+    private static final int AUDIO_SRC_TYPE_MIC_MUSIC = 2;
+    private int mAudioSrcType = AUDIO_SRC_TYPE_MIC;
+    private RadioButton mAudioSrcMicRB;
+    private RadioButton mAudioSrcMusicRB;
+    private RadioButton mAudioSrcMicMusicRB;
+
+    // 混音参数
+    private boolean isMixing = false;
+    private float[] mMultiTrackMixRatios = new float[]{
+            2.0f, // 把录音声音稍微调大一些
+            1.0f
+    };
+    private byte[][] mMultiTrackAudioBytes = null;
+    private LinkedBlockingQueue<Byte> mPCMBytesQueue = new LinkedBlockingQueue<>();
+
     private WePlayer mWePlayer;
     private int mSelectMusicRequestCode;
     private String mMusicUrl;
     private int mMusicDuration;
     private int mSeekPosition;
-    private int mSampleRate;
-    private int mChannelNums;
-    private int mBitsPerSample;
+    private static final int DEFAULT_SAMPLE_RATE = 44100;
+    private static final int DEFAULT_CHANNEL_NUMS = 2;
+    private static final int DEFAULT_BITS_PER_SAMPLE = 16;
+    private int mSampleRate = DEFAULT_SAMPLE_RATE;
+    private int mChannelNums = DEFAULT_CHANNEL_NUMS;
+    private int mBitsPerSample = DEFAULT_BITS_PER_SAMPLE;
     private int mPcmMaxBytesPerCallback;
     private boolean isMusicPrepared;
     private boolean startEncodeOnPrepared;
@@ -157,6 +182,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
         mPermissionHandler = new PermissionHandler(this, this);
         mPermissionHandler.handleCommonPermission(Manifest.permission.CAMERA);
+        mPermissionHandler.handleCommonPermission(Manifest.permission.RECORD_AUDIO);
         mPermissionHandler.handleCommonPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
         LocalBroadcastManager.getInstance(this).registerReceiver(
@@ -188,6 +214,11 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         ((RadioGroup) findViewById(R.id.rg_render_type)).setOnCheckedChangeListener(this);
         mRecordButton = findViewById(R.id.btn_record);
         mRecordButton.setOnClickListener(this);
+
+        ((RadioGroup) findViewById(R.id.rg_audio_source_type)).setOnCheckedChangeListener(this);
+        mAudioSrcMicRB = findViewById(R.id.rb_source_mic);
+        mAudioSrcMusicRB = findViewById(R.id.rb_source_music);
+        mAudioSrcMicMusicRB = findViewById(R.id.rb_source_mic_music);
 
         mIndicatorLayout = findViewById(R.id.ll_indicator_layout);
         mIndicatorLight = findViewById(R.id.v_record_indicator_light);
@@ -274,11 +305,80 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
             } else {
                 LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
             }
+        } else if (Manifest.permission.RECORD_AUDIO.equals(permission)) {
+            if (state == PermissionChecker.PermissionState.ALLOWED) {
+                initAudioRecord();
+            } else if (state == PermissionChecker.PermissionState.UNKNOWN) {
+                LogUtils.e(TAG, "onPermissionResult " + permission + " state is UNKNOWN!");
+                initAudioRecord();
+            } else if (state == PermissionChecker.PermissionState.USER_NOT_GRANTED) {
+                LogUtils.e(TAG, "onPermissionResult " + permission + " state is USER_NOT_GRANTED!");
+                finish();
+            } else {
+                LogUtils.w(TAG, "onPermissionResult " + permission + " state is " + state);
+            }
         } else if (Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(permission)) {
             if (state == PermissionChecker.PermissionState.USER_NOT_GRANTED) {
                 LogUtils.e(TAG, "onPermissionResult " + permission + " state is USER_NOT_GRANTED!");
                 finish();
             }
+        }
+    }
+
+    private void initAudioRecord() {
+        // 为了方便混音：保证与 WePlayer 播放的采样率 44100Hz、通道数 2、编码 16bit 保持一致
+        mWeNAudioRecorder = new WeNAudioRecorder(
+                WeNAudioRecorder.SampleRate.SR_44100,
+                WeNAudioRecorder.ChannelLayout.STEREO,
+                WeNAudioRecorder.EncodingBits.PCM_16BIT);
+        mWeNAudioRecorder.setOnAudioRecordDataListener(mNAudioListener);
+    }
+
+    private WeNAudioRecorder.OnAudioRecordDataListener mNAudioListener = new WeNAudioRecorder.OnAudioRecordDataListener() {
+        @Override
+        public void onAudioRecordData(byte[] data, int size) {
+            if (!isRecording) {
+                if (mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC) {
+                    mPCMBytesQueue.clear();
+                }
+                return;
+            }
+            if (mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC) {
+                synchronized (VideoRecordActivity.this) {
+                    isMixing = true;
+                }
+                if (mMultiTrackAudioBytes == null || mMultiTrackAudioBytes[0].length < size) {
+                    // 尽可能避免频繁创建和释放内存造成内存抖动
+                    mMultiTrackAudioBytes = new byte[2][size];
+                }
+                for (int i = 0; i < size; i++) {
+                    mMultiTrackAudioBytes[0][i] = data[i];
+                    try {
+                        mMultiTrackAudioBytes[1][i] = mPCMBytesQueue.take();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                // WeNAudioRecorder 录制 与 WePlayer 播放的采样率 44100Hz、通道数 2、编码 16bit 保持一致
+                // 所以可以使用下边简单的混音方法
+                byte[] mixOut = AudioUtils.linearMix16bitAudioBytes(mMultiTrackAudioBytes, size,
+                        mMultiTrackMixRatios);
+
+                putAudioToVideoRecorder(mixOut, size);
+
+                synchronized (VideoRecordActivity.this) {
+                    isMixing = false;
+                }
+            } else {
+                putAudioToVideoRecorder(data, size);
+            }
+        }
+    };
+
+    private void putAudioToVideoRecorder(byte[] data, int size) {
+        if (mWeVideoRecorder != null) {
+            mWeVideoRecorder.onAudioPCMDataCall(data, size);
         }
     }
 
@@ -334,7 +434,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
                 break;
 
             case R.id.btn_select_music:
-                mSelectMusicRequestCode = FileChooser.chooseAudio(this);
+                chooseMusic();
                 break;
 
             case R.id.btn_music_play_control:
@@ -358,8 +458,25 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         if (isRecording) {
             stopRecord();
         } else {
+            if ((mAudioSrcType == AUDIO_SRC_TYPE_MUSIC || mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC)
+                    && TextUtils.isEmpty(mMusicUrl)) {
+                Toast.makeText(this, "请选择音乐", Toast.LENGTH_SHORT).show();
+                return;
+            }
             startRecord();
         }
+    }
+
+    private void chooseMusic() {
+        if (mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC) {
+            synchronized (VideoRecordActivity.this) {
+                if (isRecording || isMixing) {
+                    Toast.makeText(this, "先停止录制，才能更换音乐！", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            }
+        }
+        mSelectMusicRequestCode = FileChooser.chooseAudio(this);
     }
 
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -405,9 +522,29 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
                         mWePlayer.seekTo(mSeekPosition);
                         mSeekPosition = 0;
                     }
+
+                    if (mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC) {
+                        if (isRecording) {
+                            mWePlayer.setVolume(0);
+                            mWePlayer.enablePCMDataCall(true);
+                        } else {
+                            mWePlayer.setVolume(1);
+                            mWePlayer.enablePCMDataCall(false);
+                        }
+                    } else if (mAudioSrcType == AUDIO_SRC_TYPE_MUSIC) {
+                        mWePlayer.setVolume(1);
+                        mWePlayer.enablePCMDataCall(true);
+                    } else if (mAudioSrcType == AUDIO_SRC_TYPE_MIC) {
+                        mWePlayer.setVolume(1);// 可以录制音乐播放的声音
+                        mWePlayer.enablePCMDataCall(false);// 但不需要混音
+                    }
+
                     mWePlayer.start();
                     if (startEncodeOnPrepared) {
                         startEncodeOnPrepared = false;
+                        if (mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC) {
+                            mWeNAudioRecorder.startRecord();
+                        }
                         startVideoEncode(true);
                     }
 
@@ -415,7 +552,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
                     LogUtils.d(TAG, "mMusicDuration=" + mMusicDuration);
                     mMusicSeekBar.setMax(mMusicDuration);
                     mMusicTotalTimeView.setText(DateTimeUtil.changeRemainTimeToMs(mMusicDuration));
-                    startUpdateTime();
+                    startUpdateMusicTime();
                     mControlMusicButton.setText(R.string.pause_music);
                 }
             });
@@ -427,7 +564,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
                     if (isMusicLoading) {
                         stopUpdateTime();
                     } else {
-                        startUpdateTime();
+                        startUpdateMusicTime();
                     }
                 }
             });
@@ -470,6 +607,14 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
             Toast.makeText(this, "请选择音乐", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC) {
+            synchronized (VideoRecordActivity.this) {
+                if (isRecording || isMixing) {
+                    Toast.makeText(this, "先停止录制，才能控制音乐！", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            }
+        }
         if (!isMusicPrepared) {
             openMusic(mMusicUrl);
         } else {
@@ -485,7 +630,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         if (mWePlayer != null) {
             mWePlayer.start();
         }
-        startUpdateTime();
+        startUpdateMusicTime();
         mControlMusicButton.setText(R.string.pause_music);
     }
 
@@ -509,7 +654,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         mMusicPlayTimeView.setText(R.string.zero_time_ms);
     }
 
-    private void startUpdateTime() {
+    private void startUpdateMusicTime() {
         mUIHandler.sendEmptyMessage(MSG_UPDATE_MUSIC_TIME);
     }
 
@@ -537,18 +682,56 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
     private void startRecord() {
         isRecording = true;
+        disableAudioSrcRadioButton();
         fixCurrentDirection();
 
-        if (isMusicPrepared) {
-            if (!mWePlayer.isPlaying()) {
-                mWePlayer.start();
-            }
-            startVideoEncode(true);
-        } else if (!TextUtils.isEmpty(mMusicUrl)) {
-            startEncodeOnPrepared = true;
-            openMusic(mMusicUrl);
-        } else {
-            startVideoEncode(false);
+        switch (mAudioSrcType) {
+            case AUDIO_SRC_TYPE_MIC:
+                if (mWePlayer != null) {
+                    mWePlayer.setVolume(1);// 可以录制音乐播放的声音
+                    mWePlayer.enablePCMDataCall(false);// 不需要混音
+                }
+                mSampleRate = DEFAULT_SAMPLE_RATE;
+                mChannelNums = DEFAULT_CHANNEL_NUMS;
+                mBitsPerSample = DEFAULT_BITS_PER_SAMPLE;
+                mPcmMaxBytesPerCallback = mSampleRate * mChannelNums * mBitsPerSample / 8;
+                mWeNAudioRecorder.startRecord();
+                startVideoEncode(true);
+                break;
+
+            case AUDIO_SRC_TYPE_MUSIC:
+                if (isMusicPrepared) {
+                    startMusic();
+                    startVideoEncode(true);
+                } else if (!TextUtils.isEmpty(mMusicUrl)) {
+                    startEncodeOnPrepared = true;
+                    openMusic(mMusicUrl);
+                } else {
+                    startVideoEncode(false);
+                }
+                if (mWePlayer != null) {
+                    mWePlayer.setVolume(1);
+                    mWePlayer.enablePCMDataCall(true);
+                }
+                break;
+
+            case AUDIO_SRC_TYPE_MIC_MUSIC:
+                mPCMBytesQueue.clear();
+                if (isMusicPrepared) {
+                    startMusic();
+                    mWeNAudioRecorder.startRecord();
+                    startVideoEncode(true);
+                } else if (!TextUtils.isEmpty(mMusicUrl)) {
+                    startEncodeOnPrepared = true;
+                    openMusic(mMusicUrl);
+                } else {
+                    startVideoEncode(false);
+                }
+                if (mWePlayer != null) {
+                    mWePlayer.setVolume(0);// 避免录制音乐播放的声音，通过混音更好
+                    mWePlayer.enablePCMDataCall(true);
+                }
+                break;
         }
 
         mRecordButton.setText(R.string.stop_record);
@@ -567,15 +750,49 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
 
     @Override
     public void onPCMDataCall(byte[] bytes, int size) {
-        if (mWeVideoRecorder != null) {
-            mWeVideoRecorder.onAudioPCMDataCall(bytes, size);
+        if (mAudioSrcType == AUDIO_SRC_TYPE_MIC_MUSIC) {
+            synchronized (VideoRecordActivity.this) {
+                if (!isRecording && !isMixing) {
+                    if (mWePlayer != null) {
+                        mWePlayer.enablePCMDataCall(false);
+                    }
+                    mPCMBytesQueue.clear();
+                    return;
+                }
+            }
+            for (byte data : bytes) {
+                try {
+                    mPCMBytesQueue.put(data);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            putAudioToVideoRecorder(bytes, size);
         }
     }
 
     private void stopRecord() {
         isRecording = false;
         startEncodeOnPrepared = false;
-        stopMusic();
+
+        switch (mAudioSrcType) {
+            case AUDIO_SRC_TYPE_MIC:
+                mWeNAudioRecorder.stopRecord();
+                break;
+
+            case AUDIO_SRC_TYPE_MUSIC:
+                stopMusic();
+                break;
+
+            case AUDIO_SRC_TYPE_MIC_MUSIC:
+                mWeNAudioRecorder.stopRecord();
+                // 这里不要直接停止音乐数据PCM回调，避免队列取不到数据阻塞
+                if (mWePlayer != null) {
+                    mWePlayer.setVolume(1);
+                }
+                break;
+        }
         mWeVideoRecorder.stopEncode();
 
         stopUpdateRecordInfo();
@@ -584,6 +801,7 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         mIndicatorTime.setText(R.string.zero_time_hms);
 
         resumeUserDirection();
+        enableAudioSrcRadioButton();
     }
 
     private void startUpdateRecordInfo() {
@@ -651,7 +869,31 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
             case R.id.rb_color_reverse:
                 mWeCameraView.setPictureRenderType(WeCameraView.PictureRenderType.COLOR_REVERSE);
                 break;
+
+            case R.id.rb_source_mic:
+                mAudioSrcType = AUDIO_SRC_TYPE_MIC;
+                break;
+
+            case R.id.rb_source_music:
+                mAudioSrcType = AUDIO_SRC_TYPE_MUSIC;
+                break;
+
+            case R.id.rb_source_mic_music:
+                mAudioSrcType = AUDIO_SRC_TYPE_MIC_MUSIC;
+                break;
         }
+    }
+
+    private void enableAudioSrcRadioButton() {
+        mAudioSrcMicRB.setEnabled(true);
+        mAudioSrcMusicRB.setEnabled(true);
+        mAudioSrcMicMusicRB.setEnabled(true);
+    }
+
+    private void disableAudioSrcRadioButton() {
+        mAudioSrcMicRB.setEnabled(false);
+        mAudioSrcMusicRB.setEnabled(false);
+        mAudioSrcMicMusicRB.setEnabled(false);
     }
 
     @Override
@@ -685,7 +927,6 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
     protected void onStop() {
         LogUtils.d(TAG, "onStop");
         stopRecord();
-        stopMusic();
         super.onStop();
     }
 
@@ -696,10 +937,20 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
         mContentView.getViewTreeObserver().removeOnGlobalLayoutListener(mOnGlobalLayoutListener);
         mUIHandler.removeCallbacksAndMessages(null);
 
-        mWeVideoRecorder.release();
-        mWeVideoRecorder = null;
-        mWeCameraView.release();
-        mWeCameraView = null;
+        if (mWeNAudioRecorder != null) {
+            mWeNAudioRecorder.release();
+            mWeNAudioRecorder = null;
+        }
+
+        if (mWeVideoRecorder != null) {
+            mWeVideoRecorder.release();
+            mWeVideoRecorder = null;
+        }
+
+        if (mWeCameraView != null) {
+            mWeCameraView.release();
+            mWeCameraView = null;
+        }
 
         if (mWePlayer != null) {
             mWePlayer.release();
@@ -710,6 +961,19 @@ public class VideoRecordActivity extends AppCompatActivity implements Permission
             mPermissionHandler.destroy();
             mPermissionHandler = null;
         }
+
+        // 避免录音线程一直取数据阻塞无法退出
+        while (isMixing) {
+            LogUtils.w(TAG, "onDestroy isMixing...");
+            try {
+                mPCMBytesQueue.put((byte) 0);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        mPCMBytesQueue.clear();
+        LogUtils.w(TAG, "onDestroy mPCMBytesQueue clear finished");
+
         super.onDestroy();
     }
 
