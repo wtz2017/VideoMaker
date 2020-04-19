@@ -41,4 +41,5 @@ dependencies {
     implementation 'androidx.recyclerview:recyclerview:1.1.0'
     implementation 'com.squareup.picasso:picasso:2.71828'
     implementation 'com.github.zcweng:switch-button:0.0.3@aar'
+    compile project(path: ':libmp3util')
 }

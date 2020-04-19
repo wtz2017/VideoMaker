@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.wtz.ffmpegapi.WAVSaver;
 import com.wtz.ffmpegapi.WePlayer;
+import com.wtz.libmp3util.WeMp3Encoder;
 import com.wtz.libnaudiorecord.WeNAudioRecorder;
 import com.wtz.libvideomaker.recorder.WeJAudioRecorder;
 import com.wtz.libvideomaker.utils.LogUtils;
@@ -39,6 +40,7 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
     private WeJAudioRecorder mWeJAudioRecorder;
     private WeNAudioRecorder mWeNAudioRecorder;
     private WAVSaver mWAVSaver;
+    private WeMp3Encoder mWeMp3Encoder;
     private boolean isInitSuccess;
     private boolean isJavaRecording;
     private boolean isNativeRecording;
@@ -72,9 +74,11 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
     private static final float TEMPO_ACCURACY = 0.1f;
 
     private String mSaveWavDir;
-    private String mCurrentPathName;
-    private static final String WAV_PREFIX = "We_AUD_";
+    private String mCurrentWavPathName;
+    private String mCurrentMp3PathName;
+    private static final String AUD_PREFIX = "We_AUD_";
     private static final String WAV_SUFFIX = ".wav";
+    private static final String MP3_SUFFIX = ".mp3";
     private final SimpleDateFormat mSimpleDateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
 
     private PermissionHandler mPermissionHandler;
@@ -265,6 +269,7 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
         mWeNAudioRecorder = new WeNAudioRecorder();
         mWeNAudioRecorder.setOnAudioRecordDataListener(mNAudioListener);
         mWAVSaver = new WAVSaver();
+        mWeMp3Encoder = new WeMp3Encoder();
         isInitSuccess = true;
     }
 
@@ -317,12 +322,17 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
 
     private void startJavaRecord() {
         stopMusic();
-        mCurrentPathName = getSavePathName();
+        mCurrentWavPathName = getSaveWavPathName();
+        mCurrentMp3PathName = getSaveMp3PathName();
         mWAVSaver.start(
                 mWeJAudioRecorder.getSampleRate(),
                 mWeJAudioRecorder.getChannelNums(),
                 mWeJAudioRecorder.getBitsPerSample(),
-                0, new File(mCurrentPathName));
+                0, new File(mCurrentWavPathName));
+        mWeMp3Encoder.startEncodePCMBuffer(
+                mWeJAudioRecorder.getSampleRate(),
+                mWeJAudioRecorder.getChannelNums(),
+                mWeJAudioRecorder.getBitsPerSample(), mCurrentMp3PathName);
         mWeJAudioRecorder.startRecord();
         mJavaRecordButton.setText("停止录音");
         startUpdateRecordInfo();
@@ -330,13 +340,18 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
 
     private void startNativeRecord() {
         stopMusic();
-        mCurrentPathName = getSavePathName();
+        mCurrentWavPathName = getSaveWavPathName();
+        mCurrentMp3PathName = getSaveMp3PathName();
 
         mWAVSaver.start(
                 mWeNAudioRecorder.getSampleRate(),
                 mWeNAudioRecorder.getChannelNums(),
                 mWeNAudioRecorder.getBitsPerSample(),
-                0, new File(mCurrentPathName));
+                0, new File(mCurrentWavPathName));
+        mWeMp3Encoder.startEncodePCMBuffer(
+                mWeNAudioRecorder.getSampleRate(),
+                mWeNAudioRecorder.getChannelNums(),
+                mWeNAudioRecorder.getBitsPerSample(), mCurrentMp3PathName);
         mWeNAudioRecorder.startRecord();
         mNativeRecordButton.setText("停止录音");
 
@@ -347,7 +362,10 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
         mWeJAudioRecorder.stopRecord();
         mJavaRecordButton.setText("开始录音");
         mWAVSaver.stop();
-        notifyScanMedia(mCurrentPathName);
+        mWeMp3Encoder.stopEncodePCMBuffer();
+        audioBuffer = null;
+        notifyScanMedia(mCurrentWavPathName);
+        notifyScanMedia(mCurrentMp3PathName);
         stopUpdateRecordInfo();
     }
 
@@ -355,7 +373,10 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
         mWeNAudioRecorder.stopRecord();
         mNativeRecordButton.setText("开始录音");
         mWAVSaver.stop();
-        notifyScanMedia(mCurrentPathName);
+        mWeMp3Encoder.stopEncodePCMBuffer();
+        audioBuffer = null;
+        notifyScanMedia(mCurrentWavPathName);
+        notifyScanMedia(mCurrentMp3PathName);
         stopUpdateRecordInfo();
     }
 
@@ -386,11 +407,22 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
         mSoundDecibelsTV.setText(DECIBELS_FORMAT.format(decibels));
     }
 
+    private short[] audioBuffer = null;
     private WeJAudioRecorder.OnAudioRecordDataListener mJAudioListener = new WeJAudioRecorder.OnAudioRecordDataListener() {
         @Override
         public void onAudioRecordData(byte[] data, int size) {
             if (mWAVSaver != null) {
                 mWAVSaver.encode(data, size);
+            }
+            if (mWeMp3Encoder != null) {
+                int shortSize = size / 2;
+                if (audioBuffer == null || audioBuffer.length < shortSize) {
+                    audioBuffer = new short[shortSize];
+                }
+                for (int i = 0; i < shortSize; i++) {
+                    audioBuffer[i] = (short) ((data[i * 2] & 0xff) | (data[i * 2 + 1] & 0xff) << 8);
+                }
+                mWeMp3Encoder.encodeFromPCMBuffer(audioBuffer, shortSize);
             }
         }
     };
@@ -401,12 +433,27 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
             if (mWAVSaver != null) {
                 mWAVSaver.encode(data, size);
             }
+            if (mWeMp3Encoder != null) {
+                int shortSize = size / 2;
+                if (audioBuffer == null || audioBuffer.length < shortSize) {
+                    audioBuffer = new short[shortSize];
+                }
+                for (int i = 0; i < shortSize; i++) {
+                    audioBuffer[i] = (short) ((data[i * 2] & 0xff) | (data[i * 2 + 1] & 0xff) << 8);
+                }
+                mWeMp3Encoder.encodeFromPCMBuffer(audioBuffer, shortSize);
+            }
         }
     };
 
-    private String getSavePathName() {
+    private String getSaveWavPathName() {
         String time = mSimpleDateFormat.format(new Date());
-        return new File(mSaveWavDir, WAV_PREFIX + time + WAV_SUFFIX).getAbsolutePath();
+        return new File(mSaveWavDir, AUD_PREFIX + time + WAV_SUFFIX).getAbsolutePath();
+    }
+
+    private String getSaveMp3PathName() {
+        String time = mSimpleDateFormat.format(new Date());
+        return new File(mSaveWavDir, AUD_PREFIX + time + MP3_SUFFIX).getAbsolutePath();
     }
 
     private void notifyScanMedia(String pathName) {
@@ -416,12 +463,12 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
     }
 
     private void playStopMusic() {
-        if (TextUtils.isEmpty(mCurrentPathName)) {
+        if (TextUtils.isEmpty(mCurrentMp3PathName)) {
             Toast.makeText(this, "请先录音", Toast.LENGTH_SHORT).show();
             return;
         }
         if (!isMusicPrepared) {
-            openMusic(mCurrentPathName);
+            openMusic(mCurrentMp3PathName);
         } else {
             stopMusic();
         }
@@ -562,6 +609,8 @@ public class AudioRecordActivity extends AppCompatActivity implements View.OnCli
             mWeNAudioRecorder = null;
         }
         mWAVSaver = null;
+        mWeMp3Encoder.release();
+        mWeMp3Encoder = null;
 
         stopMusic();
         if (mWePlayer != null) {
