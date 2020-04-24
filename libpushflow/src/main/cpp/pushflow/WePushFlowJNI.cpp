@@ -30,8 +30,9 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_wtz_libpushflow_WePushFlow_nativeCreatePushFlow(JNIEnv *env, jobject thiz) {
     if (pWePushFlow == NULL) {
-        OnStartPushResultListener *listener = new OnStartPushResultListener(jvm, env, thiz);
-        pWePushFlow = new WePushFlow(listener);
+        OnStartPushResultListener *startListener = new OnStartPushResultListener(jvm, env, thiz);
+        OnPushDisconnectCall *disconnectCall = new OnPushDisconnectCall(jvm, env, thiz);
+        pWePushFlow = new WePushFlow(startListener, disconnectCall);
     }
 
     return true;

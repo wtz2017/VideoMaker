@@ -12,6 +12,7 @@ extern "C" {
 #include <pthread.h>
 #include "RtmpPacketQueue.h"
 #include "OnStartPushResultListener.h"
+#include "OnPushDisconnectCall.h"
 
 #define RTMP_SPS_PPS_EXTRA_BYTES_SIZE  16
 #define RTMP_VIDEO_EXTRA_BYTES_SIZE  9
@@ -27,6 +28,7 @@ private:
     const char *LOG_TAG = "_WePushFlow";
 
     OnStartPushResultListener *onStartPushResultListener = NULL;
+    OnPushDisconnectCall *onPushDisconnectCall = NULL;
 
     RTMP *rtmp = NULL;
     char *pushUrl = NULL;
@@ -41,6 +43,7 @@ private:
     bool isStarting = false;
     bool isStartSuccess = false;
     long startPushTime = 0;
+    bool isShouldCallDisconnect = false;
     bool isShouldExit = false;
 
 public:
@@ -48,7 +51,7 @@ public:
     bool isPushThreadStarted = false;
 
 public:
-    WePushFlow(OnStartPushResultListener *listener);
+    WePushFlow(OnStartPushResultListener *startListener, OnPushDisconnectCall *disconnectCall);
 
     ~WePushFlow();
 

@@ -4,8 +4,9 @@
 
 #include "WePushFlow.h"
 
-WePushFlow::WePushFlow(OnStartPushResultListener *listener) {
-    this->onStartPushResultListener = listener;
+WePushFlow::WePushFlow(OnStartPushResultListener *startListener, OnPushDisconnectCall *disconnectCall) {
+    this->onStartPushResultListener = startListener;
+    this->onPushDisconnectCall = disconnectCall;
 }
 
 WePushFlow::~WePushFlow() {
@@ -16,6 +17,8 @@ WePushFlow::~WePushFlow() {
     }
     delete onStartPushResultListener;
     onStartPushResultListener = NULL;
+    delete onPushDisconnectCall;
+    onPushDisconnectCall = NULL;
 }
 
 void WePushFlow::setPushUrl(char *url) {
@@ -128,19 +131,27 @@ void WePushFlow::_loopPush() {
         packet = queue->getPacket();
         if (packet != NULL) {
             int result = RTMP_SendPacket(rtmp, packet, 1);
-            if (result == FALSE) {
-                LOGE(LOG_TAG, "RTMP_SendPacket failed! IsConnected=%d", result, RTMP_IsConnected(rtmp));
-            }
             RTMPPacket_Free(packet);
             free(packet);
             packet = NULL;
+            if (result == FALSE) {
+                bool isConnected = RTMP_IsConnected(rtmp);
+                LOGE(LOG_TAG, "RTMP_SendPacket failed! IsConnected=%d", isConnected);
+                if (!isConnected) {
+                    isShouldCallDisconnect = true;
+                    break;
+                }
+            }
         }
     }
 
+    isStartSuccess = false;
     freeRTMP();
-    queue->clearQueue();
-    delete queue;
-    queue = NULL;
+
+    if (isShouldCallDisconnect) {
+        isShouldCallDisconnect = false;
+        onPushDisconnectCall->callback(0);
+    }
 }
 
 void WePushFlow::freeRTMP() {
@@ -354,9 +365,13 @@ void WePushFlow::stopPush() {
     if (queue != NULL) {
         queue->setAllowOperation(false);
         queue->setProductDataComplete(true);
+        queue->clearQueue();
     }
     if (isPushThreadStarted) {
         pthread_join(pushThread, NULL);// 阻塞等待子线程结束
     }
+    freeRTMP();
+    delete queue;
+    queue = NULL;
     LOGW(LOG_TAG, "stopPush complete");
 }

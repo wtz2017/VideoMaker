@@ -51,14 +51,16 @@ public class WePushFlow {
     private static final int HANDLE_STOP_PUSH = 2;
     private static final int HANDLE_RELEASE = 3;
 
-    public interface OnStartPushListener {
+    public interface PushStateListener {
         void onStartPushResult(boolean success, String info);
+
+        void onPushDisconnect();
     }
 
-    private OnStartPushListener mOnStartPushListener;
+    private PushStateListener mPushStateListener;
 
-    public void setOnStartPushListener(OnStartPushListener listener) {
-        this.mOnStartPushListener = listener;
+    public void setPushStateListener(PushStateListener listener) {
+        this.mPushStateListener = listener;
     }
 
     public enum ChannelLayout {
@@ -182,11 +184,23 @@ public class WePushFlow {
         if (!success) {
             LogUtils.e(TAG, "Start native push failed: " + info);
         }
-        if (mOnStartPushListener != null) {
+        if (mPushStateListener != null) {
             mUIHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    mOnStartPushListener.onStartPushResult(success, info);
+                    mPushStateListener.onStartPushResult(success, info);
+                }
+            });
+        }
+    }
+
+    private void onNativePushDisconnect() {
+        LogUtils.e(TAG, "onNativePushDisconnect");
+        if (mPushStateListener != null) {
+            mUIHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    mPushStateListener.onPushDisconnect();
                 }
             });
         }
