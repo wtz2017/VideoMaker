@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -35,6 +36,9 @@
             android:configChanges="orientation|keyboardHidden|screenSize" />
         <activity
             android:name=".VideoRecordActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize" />
+        <activity
+            android:name=".VideoPushActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />
         <activity
             android:name=".ImageVideoActivity"

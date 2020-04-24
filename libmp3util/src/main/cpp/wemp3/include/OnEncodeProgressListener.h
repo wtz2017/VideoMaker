@@ -6,7 +6,7 @@
 #define VIDEOMAKER_ONENCODEPROGRESSLISTENER_H
 
 #include "JavaListener.h"
-class OnEncodeProgressListener : public JavaListener{
+class OnEncodeProgressListener : public JavaListener {
 
 public:
     OnEncodeProgressListener(JavaVM *jvm, JNIEnv *mainEnv, jobject obj)

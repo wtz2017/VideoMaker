@@ -281,7 +281,6 @@ public class MixAudioActivity extends AppCompatActivity implements PermissionHan
                 if (mWePlayer != null) {
                     mWePlayer.enablePCMDataCall(false);
                 }
-                mPCMBytesQueue.clear();
                 return;
             }
         }

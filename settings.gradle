@@ -1,2 +1,2 @@
-include ':app', ':libvideomaker', ':libnaudiorecord', ':libmp3util'
+include ':app', ':libvideomaker', ':libnaudiorecord', ':libmp3util', ':libpushflow'
 rootProject.name='VideoMaker'

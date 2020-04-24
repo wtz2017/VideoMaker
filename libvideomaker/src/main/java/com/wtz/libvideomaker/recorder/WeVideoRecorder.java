@@ -32,6 +32,7 @@ public class WeVideoRecorder extends WeGLVideoEncoder implements WeGLRenderer {
     private final SimpleDateFormat mSimpleDateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
 
     public WeVideoRecorder(Context context) {
+        super();
         this.mContext = context;
         setRenderMode(RENDERMODE_CONTINUOUSLY);
         setRenderFps(RENDER_FPS);

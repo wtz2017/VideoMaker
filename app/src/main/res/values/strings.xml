@@ -42,4 +42,6 @@
     <string name="image_play_interval">换图间隔</string>
     <string name="please_select_image">请选择图片</string>
     <string name="image_interval_too_small">间隔太小，请设置大于%d毫秒</string>
+    <string name="start_live">开始直播</string>
+    <string name="stop_live">停止直播</string>
 </resources>
