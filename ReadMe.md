@@ -82,32 +82,42 @@ Java 层提供的接口类为 WeMp3Encoder。
 
 ## app 模块
 
-主要是对以上各个库模块的使用验证测试，如下：
-![测试目录](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-menu.jpg)
+主要是对以上各个库模块的使用验证测试，如下：  
 
-- EGL 环境测试：单纹理、多 Surface 渲染；
-  ![单纹理、多 Surface](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-single-texture-multi-surface.jpg)
+![测试目录](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-menu.jpg)  
+
+- EGL 环境测试：单纹理、多 Surface 渲染；  
+
+![单纹理、多 Surface](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-single-texture-multi-surface.jpg)  
   
-- EGL 环境测试：多纹理、单 Surface 渲染；
-  ![多纹理、单 Surface](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-multi-texture-single-surface.jpg)
+- EGL 环境测试：多纹理、单 Surface 渲染；  
+
+![多纹理、单 Surface](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-multi-texture-single-surface.jpg)  
   
-- 音频录制测试：使用 WeJAudioRecorder、WeNAudioRecorder 录音，使用 WeMp3Encoder 保存为 mp3文件，使用 WePlayer 播放录音文件；
-  ![音频录制](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-audio-record.jpg)
+- 音频录制测试：使用 WeJAudioRecorder、WeNAudioRecorder 录音，使用 WeMp3Encoder 保存为 mp3文件，使用 WePlayer 播放录音文件；  
   
-- 音频混音测试：使用线性叠加平均混音算法对录音与背景音乐进行混音测试；
-  ![音频混音](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-audio-mix.jpg)
+![音频录制](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-audio-record.jpg)  
   
-- 摄像头预览测试：使用 WeCameraView 实现画面预览、自动对焦、前后摄像头切换、拍照图片保存、水印、滤镜效果；
-  ![camera-1](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-camera-1.jpg)
-  ![camera-2](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-camera-2.jpg)
-  ![camera-3](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-camera-3.jpg)
+- 音频混音测试：使用线性叠加平均混音算法对录音与背景音乐进行混音测试；  
+
+![音频混音](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-audio-mix.jpg)  
   
-- 视频录制测试：使用 WeVideoRecorder 实现视频编码保存为 mp4，支持声音来源有：麦克风、音乐、麦克风与音乐混音，图像来自 WeCameraView；
-  ![video-record-1](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-video-record-1.jpg)
-  ![video-record-2](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-video-record-2.jpg)
+- 摄像头预览测试：使用 WeCameraView 实现画面预览、自动对焦、前后摄像头切换、拍照图片保存、水印、滤镜效果；  
+
+![camera-1](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-camera-1.jpg) 
+![camera-2](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-camera-2.jpg)
+![camera-3](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-camera-3.jpg)  
   
-- 图像合成视频测试：使用 WeImageVideoView 手动或自动连续加载渲染多张图片，配合音乐播放，使用 WeVideoRecorder 合成为视频；
-  ![图像合成视频](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-image-video.jpg)
+- 视频录制测试：使用 WeVideoRecorder 实现视频编码保存为 mp4，支持声音来源有：麦克风、音乐、麦克风与音乐混音，图像来自 WeCameraView；  
+
+![video-record-1](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-video-record-1.jpg)
+![video-record-2](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-video-record-2.jpg)  
   
-- 直播推流测试：与视频录制测试类似，区别在于使用 WeVideoPusher 而不是 WeVideoRecorder 来编码和封装数据并发送到直播服务器；
-  ![直播推流](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-video-push.jpg)
+- 图像合成视频测试：使用 WeImageVideoView 手动或自动连续加载渲染多张图片，配合音乐播放，使用 WeVideoRecorder 合成为视频；  
+
+![图像合成视频](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-image-video.jpg)  
+  
+- 直播推流测试：与视频录制测试类似，区别在于使用 WeVideoPusher 而不是 WeVideoRecorder 来编码和封装数据并发送到直播服务器；  
+
+![直播推流](https://github.com/wtz2017/VideoMaker/raw/master/images/VideoMaker-app-video-push.jpg)  
+
